@@ -1,41 +1,60 @@
 -module(ecc).
+-include_lib("eunit/include/eunit.hrl").
 -compile(export_all).
 
-%%
-euler_kriterium(C,P) ->
-   Result = krypto:fpow(C,(P-1) div 2, P),
-   N = P-1,
-   case Result of
-       1 -> true;
-       N -> false;
-       _ -> 0
+
+%%Schnelle Exponentiation mit modulo
+fpow(A,1,M) -> A rem M;
+fpow(A,2,M) -> A * A rem M;
+fpow(A,B,M) ->
+    B1 = B div 2,
+    B2 = B - B1,
+    P = fpow(A,B1,M),
+    case B2 of
+        B1 -> (P*P) rem M;
+        _  -> (P*P*A) rem M
     end.
 
-mult_legendre(A,P) ->
-   PFZ = krypto:primfz(A),
-   mult_legendre(A,P,PFZ).
+pow(_,0) -> 1; % Wenn B == 0
+pow(A,1) -> A; % Wenn B == 1
+pow(A,B) -> A * (pow(A, B-1)).
 
-mult_legendre(A,P,PFZ) when length(PFZ) > 2 ->
-    euler_kriterium(hd(PFZ),P) * mult_legendre(A,P,tl(PFZ));
-mult_legendre(_,P,PFZ) ->
-    euler_kriterium(hd(PFZ),P).
-
-
-h1d(P) ->
-    X = [X || X <- lists:seq(1,P), euler_kriterium(X,P) == true],
-    comp_x(X,P,[]).
-
-comp_x(X,P,R) when length(tl(X)) == 0 ->
-    R ++ [ A || A <- lists:seq(1,P),trunc(math:pow(A,2)) rem P == hd(X)];
-
-comp_x(X,P,R) ->
-    comp_x(tl(X),P,R ++ [ A || A <- lists:seq(1,P),(trunc(math:pow(A,2)) rem P) == hd(X)]).
+fastExponentiation(_,0)  -> 1; % Wenn B == 0
+fastExponentiation(A,B) when B < 0 -> pow(1/A,-B);
+fastExponentiation(A,B) when B rem 2 == 1 -> A * pow(pow(A,(B-1) div 2),2);
+fastExponentiation(A,B) when B rem  2 == 0 -> pow(pow(A,B div 2),2).
 
 
+ublock(Input, _, Result) when length(Input) == 0 -> Result;
+ublock(Input, K, Result) when length(Input) > K ->
+    {NewInput,NewResult} = u_to_block(Input,K,0),
+    ublock(NewInput, K, lists:append(Result, [NewResult]));
+ublock(Input,K,Result) when length(Input) < K ->
+    ublock(lists:append(Input, [32]),K,Result);
+ublock(Input,K,Result) when length(Input) == K ->
+    {_,NewResult} = u_to_block(Input,K-1,0),
+    lists:append(Result, [NewResult]).
 
-calc_legendre(A,M) ->
-    case euler_kriterium(A,M) of
-        1 -> h1d(M);
-        -1 -> io:format("a ist ein quadratischer Nichtrest",[]);
-        0 -> io:format("a|b \n",[])
-    end.
+u_to_block(Input, 0, Result) ->
+    Res = hd(Input) + Result,
+    {tl(Input), Res};
+u_to_block(Input, K, Result) ->
+    u_to_block(tl(Input), K-1, hd(Input) * fastExponentiation(4294967296,K) + Result).
+
+
+unblock(Input,_,Result) when length(Input) == 0  -> tl(Result);
+unblock(Input, K, Result) ->
+    Res = u_from_block(hd(Input), K, Result),
+    unblock(tl(Input),K,Res).
+
+
+u_from_block(Input, 0, Result) ->
+    Res = lists:append(Result,[Input]),
+    Res;
+u_from_block(Input, K, Result) ->
+    Mul = fastExponentiation(4294967296,K),
+    A = Input div Mul ,
+    NewInput = Input - (A * Mul),
+    NewResult = lists:append(Result,[A]),
+	u_from_block(NewInput,K-1, NewResult).
+
