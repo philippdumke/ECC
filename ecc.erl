@@ -58,3 +58,159 @@ u_from_block(Input, K, Result) ->
     NewResult = lists:append(Result,[A]),
 	u_from_block(NewInput,K-1, NewResult).
 
+add(A,B) ->
+    {A1,A2} = A,
+    {B1,B2} = B,
+    Result = {A1 + B1, A2 + B2},
+    Result.
+
+sub(A,B) ->
+    {A1,A2} = A,
+    {B1,B2} = B,
+    Result = {A1 - B1, A2 - B2},
+    Result.
+
+mul(A,B) ->
+    {A1,A2} = A,
+    {B1,B2} = B,
+    Real = (A1 * B1) - (A2 * B2),
+    Img = (A1 * B2) + (B1 * A2),
+    {Real , Img}.
+
+
+%% Generiert eine sichere Primzahl
+make_prime(K) when K > 0 ->
+    new_seed(),
+    N = make(K),
+    if N > 3 ->
+           io:format("Generiere eine ~w stellige Primzahl ", [K]),
+           MaxTries = N - 3,
+           P1 = make_prime(MaxTries, N +1),
+           io:format("~n", []),
+           P1;
+       true -> make_prime(K)
+    end.
+
+make_prime(0,_) -> exit(something_happend);
+make_prime(K,P) ->
+    io:format(".",[]),
+    case is_mod8(P) of
+        true ->
+            case is_prime(P) of
+                true -> P;
+                false -> make_prime(K-1, P + 8)
+            end;
+        false ->
+            case is_prime(P) of
+                true -> P;
+                false -> make_prime(K-1,P+1)
+            end
+    end.
+
+is_mod8(P) ->
+    if (P rem 8) == 5 ->
+           true;
+    true  ->
+           false
+    end.
+
+make(N) -> new_seed(), make(N,0).
+make(0,D) -> D;
+make(N,D) -> make(N-1,D*10+(rand:uniform(10)-1)).
+
+%% Generiert einen neuen Seed für einen Zufall. Bei Aufruf wird der neue Seed dem rand:uniform zur Vefügung gestellt.
+new_seed() ->
+    {_,_,X} = erlang:timestamp(),
+    {H,M,S} =  time(),
+    H1 = H * X rem 32767,
+    M1 = M * X rem 32767,
+    S1 = S * X rem 32767,
+    put(random_seed,{H1,M1,S1}). %Setzte neuen Seed für rand:uniform
+
+
+is_prime(D) ->
+    new_seed(),
+    is_prime(D,100).
+is_prime(D,Tests) ->
+    N = length(integer_to_list(D)) - 1,
+    is_prime(Tests, D, N).
+
+
+is_prime(0,_,_) -> true;
+is_prime(Test,N,Len) ->
+    K = rand:uniform(Len),
+    A = make(K),
+    if A < N ->
+           B = N-1,
+           case fpow(A,(N-1) div 2, N) of
+               1 -> is_prime(Test - 1, N, Len);
+               B -> is_prime(Test - 1, N,Len);
+               _ -> false
+            end;
+        true -> is_prime(Test, N, Len)
+    end.
+
+euler_kriterium(C,P) ->
+   Result = krypto:fpow(C,(P-1) div 2, P),
+   N = P-1,
+   case Result of
+       1 -> true;
+       N -> false;
+       _ -> 0
+    end.
+
+make_key(Len) ->
+    new_seed(),
+    % Erzeugen einer zufälligen Zahl kleiner als P
+    W2 = make(Len -1),
+    % Erzeugen einer Primzahl
+    P = make_prime(Len),
+    case euler_kriterium(W2,P) of
+        false ->
+            W = fastExponentiation(W2, (P - 1) div 4)
+            %% Hier gehts dann weiter
+            ;
+        true -> make_key(Len)
+    end.
+
+% Funktion mappen
+c_to_Z({A1,A2}) ->
+    if A1 >= 0.5 -> B1 = trunc(A1 - 0.5) + 1;
+       true -> B1 = trunc(A1 -0.5)
+    end,
+
+    if A2 >= 0.5 -> B2 = trunc(A2 - 0.5) + 1;
+       true -> B2 = trunc(A2 -0.5)
+    end,
+    {B1,B2}.
+
+
+euklid( {0,0},B) -> B;
+
+euklid(A,B)  ->
+    case is_less(A,B) of
+        true ->
+                {A1,A2} = A,
+                {B1,B2} = B,
+                io:format("A: ~p ~p ~n",[A1,A2]),
+                E1 = ((B1 * A1) + (B2 * A2)) / (fastExponentiation(A1,2) + fastExponentiation(A2,2)),
+                E2 = ((B1 * A2) + (B2 * A1)) / (fastExponentiation(A1,2) + fastExponentiation(A2,2)),
+                io:format("E: ~p ~p ~n",[E1,E2]),
+                {F1,F2} = c_to_Z({E1,E2}),
+                C1 = B1 - (A1 * F1 - A2 * F2),
+                C2 = B2 - (A1 * F2 + A2 * F1),
+                euklid({C1,C2},A);
+        false -> euklid (B,A)
+    end.
+
+
+
+% Coplexe Zahl A kleiner B
+is_less(A,B) ->
+    {A1,A2} = A,
+    {B1,B2} = B,
+    A_abs = fastExponentiation(A1,2) + fastExponentiation(A2,2),
+    B_abs = fastExponentiation(B1,2) + fastExponentiation(B2,2),
+    if A_abs < B_abs -> true;
+       true -> false
+    end.
