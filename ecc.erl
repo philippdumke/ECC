@@ -151,7 +151,7 @@ is_prime(Test,N,Len) ->
     end.
 
 euler_kriterium(C,P) ->
-   Result = krypto:fpow(C,(P-1) div 2, P),
+   Result = fpow(C,(P-1) div 2, P),
    N = P-1,
    case Result of
        1 -> true;
@@ -167,11 +167,34 @@ make_key(Len) ->
     P = make_prime(Len),
     case euler_kriterium(W2,P) of
         false ->
-            W = fastExponentiation(W2, (P - 1) div 4)
+            W = fastExponentiation(W2, (P - 1) div 4),
+            {X,Y} = euklid({W,1},{P,0}),
+            N = calc_n(abs(X),abs(Y),P), %Betrag
+            case is_prime(N div 8) of
+                false -> make_key(Len); %Abbruch neu anfangen
+                true ->
+                    calc_point(Len, P)
+            end;
+
             %% Hier gehts dann weiter
-            ;
         true -> make_key(Len)
     end.
+
+calc_point(Len, P) ->
+    R1 = make(Len - 2),
+    R = (fastExponentiation(R1,3) - R1) rem P,
+    case euler_kriterium(R,P) of
+        false -> calc_point(Len, P);
+        0 -> exit("eulerkriterium ist komisch");
+        true ->
+            L = P - 1,
+            case fpow(R,(P - 1) / 4, P) of
+                1 -> {R1 , fpow(R,( P + 3) / 8, P)};
+                L -> {R1 , ((P+1)/2) * fpow(4 * R, (p + 3) / 8, P) rem P};
+                _ -> exit("Fehler")
+            end
+    end.
+
 
 % Funktion mappen
 c_to_Z({A1,A2}) ->
@@ -203,6 +226,22 @@ euklid(A,B)  ->
         false -> euklid (B,A)
     end.
 
+
+calc_n(X,Y,P) when X rem 2 == 1 ->
+    calc_n(Y,X,P);
+calc_n(X,Y,P) ->
+    case X rem 4 of
+        0 ->
+            case Y rem 4 of
+                3 -> (P + 1) - ( -2 * Y);
+                1 -> (P + 1) - ( 2 * Y)
+            end;
+        2 ->
+            case Y rem 4 of
+                3 -> (P + 1) - ( 2 * Y);
+                1 -> (P + 1) - (- 2 * Y)
+            end
+    end.
 
 
 % Coplexe Zahl A kleiner B
