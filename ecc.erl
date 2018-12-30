@@ -26,6 +26,8 @@ fastExponentiation(A,B) when B rem  2 == 0 -> pow(pow(A,B div 2),2).
 
 
 ublock(Input, _, Result) when length(Input) == 0 -> Result;
+%ublock(Input,K,Result) when length(Input) rem  (2 * K) /= 0 ->
+%    ublock(lists:append(Input,[32]),K,Result);
 ublock(Input, K, Result) when length(Input) > K ->
     {NewInput,NewResult} = u_to_block(Input,K-1,0),
     ublock(NewInput, K, lists:append(Result, [NewResult]));
@@ -42,9 +44,9 @@ u_to_block(Input, K, Result) ->
     u_to_block(tl(Input), K-1, hd(Input) * fastExponentiation(4294967296,K) + Result).
 
 
-unblock(Input,_,Result) when length(Input) == 0  -> tl(Result);
+unblock(Input,_,Result) when length(Input) == 0  -> Result;
 unblock(Input, K, Result) ->
-    Res = u_from_block(hd(Input), K, Result),
+    Res = u_from_block(hd(Input), K-1, Result),
     unblock(tl(Input),K,Res).
 
 
