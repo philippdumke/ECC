@@ -13,6 +13,11 @@ ublock_4_test() -> A = ecc:ublock("hallo 123",10,[]),
 ublock_5_test() -> A = ecc:ublock("😂",10,[]),
                    "😂" = string:strip(ecc:unblock(A,10,[]), right).
 
+ublock_6_test() -> String = "Agner Krarup Erlang (* 1. Januar 1878 in Lønborg, Dänemark; † 3. Februar 1929 in Kopenhagen) war ein dänischer Mathematiker und Ingenieur.",
+                  A = ecc:ublock(String,100,[]),
+                 String = string:strip(ecc:unblock(A,100,[]),right).
+
+
 euler_kriterium_test() ->  false = ecc:euler_kriterium(7,13).
 euler_kriterium_2_test() -> true = ecc:euler_kriterium(3,13).
 

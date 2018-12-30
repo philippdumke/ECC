@@ -27,7 +27,7 @@ fastExponentiation(A,B) when B rem  2 == 0 -> pow(pow(A,B div 2),2).
 
 ublock(Input, _, Result) when length(Input) == 0 -> Result;
 ublock(Input, K, Result) when length(Input) > K ->
-    {NewInput,NewResult} = u_to_block(Input,K,0),
+    {NewInput,NewResult} = u_to_block(Input,K-1,0),
     ublock(NewInput, K, lists:append(Result, [NewResult]));
 ublock(Input,K,Result) when length(Input) < K ->
     ublock(lists:append(Input, [32]),K,Result);
@@ -159,7 +159,7 @@ euler_kriterium(C,P) ->
        _ -> 0
     end.
 
-make_key(Len) ->
+make_key(Len,A) ->
     new_seed(),
     % Erzeugen einer zufälligen Zahl kleiner als P
     W2 = make(Len -1),
@@ -167,30 +167,39 @@ make_key(Len) ->
     P = make_prime(Len),
     case euler_kriterium(W2,P) of
         false ->
-            W = fastExponentiation(W2, (P - 1) div 4),
+            W = fpow(W2, (P - 1) div 4,P),
             {X,Y} = euklid({W,1},{P,0}),
             N = calc_n(abs(X),abs(Y),P), %Betrag
             case is_prime(N div 8) of
-                false -> make_key(Len); %Abbruch neu anfangen
+                false -> make_key(Len,A); %Abbruch neu anfangen
                 true ->
-                    calc_point(Len, P)
+                    Point = calc_point(Len, P, A)
+
             end;
 
             %% Hier gehts dann weiter
-        true -> make_key(Len)
+        true -> make_key(Len,A)
     end.
 
-calc_point(Len, P) ->
+calc_point(Len, P,A) ->
     R1 = make(Len - 2),
     R = (fastExponentiation(R1,3) - R1) rem P,
     case euler_kriterium(R,P) of
-        false -> calc_point(Len, P);
+        false -> calc_point(Len, P, A);
         0 -> exit("eulerkriterium ist komisch");
         true ->
             L = P - 1,
-            case fpow(R,(P - 1) / 4, P) of
+            Temp =  fpow(R,(P - 1) / 4, P),
+            io:format("calc_point Temp: ~p, L: ~p ~n",[Temp,L]),
+            case Temp of
                 1 -> {R1 , fpow(R,( P + 3) / 8, P)};
-                L -> {R1 , ((P+1)/2) * fpow(4 * R, (p + 3) / 8, P) rem P};
+                L ->
+                    R2 = ((P+1) div 2) * fpow((4 * R), ((p + 3) div 8), P) rem P,
+                    Ordnung = ordT({R1 , R2},0,A),
+                    case Ordnung of
+                        false -> calc_point(Len,P,A);
+                        _ -> {R1,R2}
+                    end;
                 _ -> exit("Fehler")
             end
     end.
@@ -206,6 +215,33 @@ c_to_Z({A1,A2}) ->
        true -> B2 = trunc(A2 -0.5)
     end,
     {B1,B2}.
+
+
+tangente({X1,_},{X2,_}) when X1 == X2 ->
+    unendlichFernerPunkt;
+
+tangente({X1,Y1},{X2,Y2}) ->
+    M = (Y2-Y1) / (X2-X1),
+    X3 = pow(M,2) - X1 - X2,
+    {X3, -(M * (X3 - X1) + Y1)}.
+
+sehne({_,Y},_) when Y == 0 ->
+    unendlichFernerPunkt;
+sehne({X,Y},A) ->
+    M = (3 * pow(X, 2) + A) / (2 * Y),
+    X3 = pow(M,2) - (2 * X),
+    {X3, -(M * (X3 - X) + Y)}.
+
+
+%Testet ob die Ordnung Element 2,4,8 ist
+ordT({_,_},K,_) when K == 4 ->
+    true;
+ordT({X,Y},K,A) ->
+    Temp = sehne({X,Y},A),
+    case Temp of
+        unendlichFernerPunkt -> false;
+        _ -> ordT(Temp,K+1,A)
+    end.
 
 
 euklid( {0,0},B) -> B;
@@ -250,6 +286,6 @@ is_less(A,B) ->
     {B1,B2} = B,
     A_abs = fastExponentiation(A1,2) + fastExponentiation(A2,2),
     B_abs = fastExponentiation(B1,2) + fastExponentiation(B2,2),
-    if A_abs < B_abs -> true;
+    if A_abs =< B_abs -> true;
        true -> false
     end.
