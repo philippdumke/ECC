@@ -60,6 +60,11 @@ make_window() ->
     STPrivKey2 = wxStaticText:new(Panel,2011," ",[]),
     PrivKey = wxTextCtrl:new(Panel,1004,[{value," "},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
 
+    %% Public Key
+    TPubKey = wxTextCtrl:new(Panel,1005,[{value,""},{style, ?wxDEFAULT bor ?wxTE_MULTILINE}]),
+    STPubKey1 = wxStaticText:new(Panel,2016,"Öff. Key"),
+    STPubKey2 = wxStaticText:new(Panel,2017,""),
+    STPubKey3 = wxStaticText:new(Panel,2018,""),
     %% Ausgabe
     TAusgabe = wxTextCtrl:new(Panel,1011,[{value, ""},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
     STAus1 = wxStaticText:new(Panel,2012,"Ausgabe",[]),
@@ -67,9 +72,9 @@ make_window() ->
     STAus3 = wxStaticText:new(Panel,2014,"",[]),
     STAus4 = wxStaticText:new(Panel,2015,"",[]),
 
-    TLog = wxTextCtrl:new(Panel, 2011,[{value, "Log: "},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
+    TLog = wxTextCtrl:new(Panel, 2011,[{value, ""},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
 
-    Encrypt = wxButton:new(Panel, 101,[{label,"Verschlüsseeln"}]),
+    Encrypt = wxButton:new(Panel, 101,[{label,"Verschlüsseln"}]),
     Decrypt = wxButton:new(Panel, 102, [{label, "Entschlüsseln"}]),
     Test = wxButton:new(Panel,103,[{label,"Test"}]),
     Key = wxButton:new(Panel,104,[{label,"Gen Key"}]),
@@ -97,12 +102,20 @@ make_window() ->
     wxSizer:add(BlockL,BlockLHd,[]),
     wxSizer:add(BlockL,TBlockL,[{flag,?wxEXPAND},{proportion,1}]),
 
-
+    %% Priv Key
     wxSizer:add(PrivKeyHd,STPrivKey1,[]),
     wxSizer:add(PrivKeyHd,STPrivKey2,[]),
     wxSizer:add(PrivKeyTl,PrivKeyHd,[]),
     wxSizer:add(PrivKeyTl,PrivKey,[{flag,?wxEXPAND},{proportion,1}]),
-    % Ausgabe
+
+    %% Öff Key
+    wxSizer:add(OefKeyHd,STPubKey1,[]),
+    wxSizer:add(OefKeyHd,STPubKey2,[]),
+    wxSizer:add(OefKeyHd,STPubKey3,[]),
+    wxSizer:add(OefKeyTL,OefKeyHd,[]),
+    wxSizer:add(OefKeyTL,TPubKey,[{flag,?wxEXPAND},{proportion,1}]),
+
+    %% Ausgabe
     wxSizer:add(AusgHd,STAus4,[]),
     wxSizer:add(AusgHd,STAus1,[]),
     wxSizer:add(AusgHd,STAus2,[]),
@@ -127,6 +140,7 @@ make_window() ->
     wxSizer:add(LeftSide,Hash,[{flag,?wxEXPAND}]),
     wxSizer:add(LeftSide,BlockL,[{flag,?wxEXPAND}]),
     wxSizer:add(LeftSide,PrivKeyTl,[{flag,?wxEXPAND}]),
+    wxSizer:add(LeftSide,OefKeyTL,[{flag,?wxEXPAND}]),
     wxSizer:add(GuiSizer,LeftSide,[{flag,?wxEXPAND},{proportion,1}]),
     wxSizer:add(GuiSizer,RightSide,[{flag,?wxEXPAND},{proportion,1}]),
     wxSizer:add(MainSizer,GuiSizer,[{flag,?wxEXPAND}]),
@@ -138,15 +152,16 @@ make_window() ->
     wxFrame:connect(Frame, close_window),
     wxFrame:connect(Frame, command_button_clicked),
 
-    {Frame,TEingabe,TAusgabe,TBlockL,TLog,[]}.
+    {Frame,TEingabe,TAusgabe,TBlockL,TLog,Status,[]}.
 
 
 loop(State) ->
-    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Pid} = State,
+    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,Pid} = State,
     receive
         #wx{event=#wxClose{}} ->
             wxWindow:destroy(Frame),
             io:format("Exit Button klicked\n",[]),
+            kill(Pid),
             ok;
     %% Verschlüsseln
     #wx{id = 101, event=#wxCommand{type = command_button_clicked}} ->
@@ -161,10 +176,47 @@ loop(State) ->
         io:format("unblock",[]),
         Message = string:strip(ecc:unblock(Block,BlockLen,[]),right),
         wxTextCtrl:changeValue(TAusgabe,Message),
-        spawn(ecc,test,[self()]),
+        Proc = spawn(ecc,test,[self()]),
+        NewPid = Pid ++ [Proc],
+
+        loop({Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,NewPid});
+
+    #wx{id = 102, event=#wxCommand{type = command_button_clicked}} ->
+        wxTextCtrl:changeValue(Tlog,(wxTextCtrl:getValue(Tlog) ++ "\n" ++ "========>>>>> Entschlüsseln")),
+        loop(State);
+
+    #wx{id = 103, event=#wxCommand{type = command_button_clicked}} ->
+        wxTextCtrl:changeValue(Tlog,wxTextCtrl:getValue(Tlog) ++ "\n" ++ "========>>>>> Test"),
+        loop(State);
+
+    #wx{id = 104, event=#wxCommand{type = command_button_clicked}} ->
+        wxTextCtrl:changeValue(Tlog,wxTextCtrl:getValue(Tlog) ++ "\n" ++ "========>>>>> Generiere Schlüssel"),
         loop(State);
 
     {message,A} ->
         wxTextCtrl:changeValue(Tlog,(wxTextCtrl:getValue(Tlog) ++ "\n" ++ A)),
+        loop(State);
+
+    {tik} ->
+        case wxTextCtrl:getValue(Status) of
+            "|" -> Next = "/";
+            "/" -> Next = "-";
+            "-" -> Next = "\\  ";
+            "\\ " -> Next = "| ";
+            "| " -> Next = "/ ";
+            "/ " -> Next = "- ";
+            "- " -> Next = "\\";
+            "\\" -> Next = "|";
+            _ -> Next = "/"
+        end,
+        wxTextCtrl:changeValue(Status, Next),
         loop(State)
     end.
+
+
+kill(Pid) when length(Pid) == 0 ->
+    io:format("Alle Threads beendet ~n",[]);
+kill(Pid) ->
+    exit(hd(Pid), exit),
+    io:format("Beende Thread: ~p~n",[hd(Pid)]),
+    kill(tl(Pid)).
