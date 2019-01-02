@@ -67,7 +67,7 @@ make_window() ->
     STAus3 = wxStaticText:new(Panel,2014,"",[]),
     STAus4 = wxStaticText:new(Panel,2015,"",[]),
 
-
+    TLog = wxTextCtrl:new(Panel, 2011,[{value, "Log: "},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
 
     Encrypt = wxButton:new(Panel, 101,[{label,"Verschlüsseeln"}]),
     Decrypt = wxButton:new(Panel, 102, [{label, "Entschlüsseln"}]),
@@ -118,6 +118,7 @@ make_window() ->
 
     wxSizer:add(RightSide,Buttons,[{flag,?wxEXPAND}]),
     wxSizer:add(RightSide,AusgTl,[{flag,?wxEXPAND}]),
+    wxSizer:add(RightSide,TLog,[{flag,?wxEXPAND},{proportion,1}]),
 
 
 
@@ -137,11 +138,11 @@ make_window() ->
     wxFrame:connect(Frame, close_window),
     wxFrame:connect(Frame, command_button_clicked),
 
-    {Frame,TEingabe,TAusgabe,TBlockL,[]}.
+    {Frame,TEingabe,TAusgabe,TBlockL,TLog,[]}.
 
 
 loop(State) ->
-    {Frame,TEingabe,TAusgabe,TBlockL,Pid} = State,
+    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Pid} = State,
     receive
         #wx{event=#wxClose{}} ->
             wxWindow:destroy(Frame),
@@ -149,6 +150,7 @@ loop(State) ->
             ok;
     %% Verschlüsseln
     #wx{id = 101, event=#wxCommand{type = command_button_clicked}} ->
+        wxTextCtrl:changeValue(Tlog,(wxTextCtrl:getValue(Tlog) ++ "\n"++ "========>>>>>  Verschlüsseln")),
         io:format("Verschlüsseln",[]),
         Eingabe = wxTextCtrl:getValue(TEingabe),
         io:format("Eingabe ~p",[Eingabe]),
@@ -159,7 +161,10 @@ loop(State) ->
         io:format("unblock",[]),
         Message = string:strip(ecc:unblock(Block,BlockLen,[]),right),
         wxTextCtrl:changeValue(TAusgabe,Message),
+        spawn(ecc,test,[self()]),
+        loop(State);
+
+    {message,A} ->
+        wxTextCtrl:changeValue(Tlog,(wxTextCtrl:getValue(Tlog) ++ "\n" ++ A)),
         loop(State)
-
-
     end.

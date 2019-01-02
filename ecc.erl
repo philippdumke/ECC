@@ -60,6 +60,10 @@ u_from_block(Input, K, Result) ->
     NewResult = lists:append(Result,[A]),
 	u_from_block(NewInput,K-1, NewResult).
 
+
+
+
+
 add(A,B) ->
     {A1,A2} = A,
     {B1,B2} = B,
@@ -254,8 +258,8 @@ euklid(A,B)  ->
                 {A1,A2} = A,
                 {B1,B2} = B,
                 io:format("A: ~p ~p ~n",[A1,A2]),
-                E1 = ((B1 * A1) + (B2 * A2)) / (fastExponentiation(A1,2) + fastExponentiation(A2,2)),
-                E2 = ((B1 * A2) + (B2 * A1)) / (fastExponentiation(A1,2) + fastExponentiation(A2,2)),
+                E1 = ((B1 * A1) + (B2 * A2)) / (pow(A1,2) + pow(A2,2)),
+                E2 = ((B1 * A2) + (B2 * A1)) / (pow(A1,2) + pow(A2,2)),
                 io:format("E: ~p ~p ~n",[E1,E2]),
                 {F1,F2} = c_to_Z({E1,E2}),
                 C1 = B1 - (A1 * F1 - A2 * F2),
@@ -282,12 +286,17 @@ calc_n(X,Y,P) ->
     end.
 
 
-% Coplexe Zahl A kleiner B
+% Liefert true wenn die Komplexe Zahl A kleiner ist als B
 is_less(A,B) ->
     {A1,A2} = A,
     {B1,B2} = B,
-    A_abs = fastExponentiation(A1,2) + fastExponentiation(A2,2),
-    B_abs = fastExponentiation(B1,2) + fastExponentiation(B2,2),
-    if A_abs =< B_abs -> true;
+    A_abs = pow(A1,2) + pow(A2,2),
+    B_abs = pow(B1,2) + pow(B2,2),
+    if A_abs < B_abs -> true;
+       A_abs == B_abs -> false;
        true -> false
     end.
+
+test(Pid) ->
+    Message = "Hallo",
+    Pid ! {message, Message}.
