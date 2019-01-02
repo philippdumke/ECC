@@ -200,16 +200,19 @@ loop(State) ->
     {tik} ->
         case wxTextCtrl:getValue(Status) of
             "|" -> Next = "/";
-            "/" -> Next = "-";
-            "-" -> Next = "\\  ";
+            "/" -> Next = "--";
+            "--" -> Next = "\\ ";
             "\\ " -> Next = "| ";
             "| " -> Next = "/ ";
-            "/ " -> Next = "- ";
-            "- " -> Next = "\\";
+            "/ " -> Next = "-- ";
+            "-- " -> Next = "\\";
             "\\" -> Next = "|";
             _ -> Next = "/"
         end,
         wxTextCtrl:changeValue(Status, Next),
+        loop(State);
+    {tik,ok} ->
+        wxTextCtrl:changeValue(Status,"ok"),
         loop(State)
     end.
 

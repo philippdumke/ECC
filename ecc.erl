@@ -61,21 +61,37 @@ u_from_block(Input, K, Result) ->
 	u_from_block(NewInput,K-1, NewResult).
 
 
+%% Aufruf als Thread
+%% Generiert aus einem String eine Liste aus Blöcken
+%% Sendet Log Nachrichten an die GUI
+text_to_block(Message, Blocklaenge, Pid) ->
+    Result = ublock(Message, Blocklaenge, []),
+    Pid ! {message, "Liste aus Blöcken wurde erstellt" },
+    Result.
+
+%% Aufruf als Thread
+%% Generiert aus einer Liste von Blöcken einen String
+%% Sendet Log Nachrichten an die GUI
+block_to_text(Input,Blocklaenge, Pid) ->
+    Result = unblock(Input, Blocklaenge,[]),
+    Pid ! {message, "Aus den Blöcken wurde ein String erstellt"},
+    Result.
 
 
 
+%% Addiert zwei Komplexe Zahlen
 add(A,B) ->
     {A1,A2} = A,
     {B1,B2} = B,
     Result = {A1 + B1, A2 + B2},
     Result.
-
+%% Subtrahiert zwei Komplexe Zahlen
 sub(A,B) ->
     {A1,A2} = A,
     {B1,B2} = B,
     Result = {A1 - B1, A2 - B2},
     Result.
-
+%% Multipliziert zwei Komplexe Zahlen
 mul(A,B) ->
     {A1,A2} = A,
     {B1,B2} = B,
@@ -299,4 +315,13 @@ is_less(A,B) ->
 
 test(Pid) ->
     Message = "Hallo",
-    Pid ! {message, Message}.
+    Tik = spawn(ecc, tik, [Pid]),
+    Pid ! {message, Message},
+    timer:sleep(10000),
+    exit(Tik,done),
+    Pid ! {tik,ok}.
+
+tik(Pid) ->
+    Pid ! {tik},
+    timer:sleep(200),
+    tik(Pid).
