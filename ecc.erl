@@ -61,10 +61,21 @@ u_from_block(Input, K, Result) ->
 	u_from_block(NewInput,K-1, NewResult).
 
 
+test_block(Message, Len, Pid) ->
+    Tik = spawn(ecc,tik,[Pid, self()]),
+    link(Tik),
+    Block = text_to_block(Message, Len, Pid),
+    Result = block_to_text(Block, Len, Pid),
+    Pid ! {ausgabe, verschluesseln, Result},
+    exit(Tik, done),
+    Pid ! {tik,ok}.
+
 %% Aufruf als Thread
 %% Generiert aus einem String eine Liste aus Blöcken
 %% Sendet Log Nachrichten an die GUI
 text_to_block(Message, Blocklaenge, Pid) ->
+    Len = length(Message),
+    %Pid !{message, string:concat("Länge der Eingabe: ", Len)},
     Result = ublock(Message, Blocklaenge, []),
     Pid ! {message, "Liste aus Blöcken wurde erstellt" },
     Result.
@@ -77,6 +88,13 @@ block_to_text(Input,Blocklaenge, Pid) ->
     Pid ! {message, "Aus den Blöcken wurde ein String erstellt"},
     Result.
 
+compute_Hash(Input, Pid) ->
+    Tik = spawn(ecc,tik, [Pid, self()]),
+    link(Tik),
+    Pid ! {message, "Hash wird berrechnet"},
+    Result = md5:md5_hex(Input),
+    Pid ! {ausgabe, hash, Result},
+    exit(Tik, done).
 
 
 %% Addiert zwei Komplexe Zahlen
@@ -315,13 +333,20 @@ is_less(A,B) ->
 
 test(Pid) ->
     Message = "Hallo",
-    Tik = spawn(ecc, tik, [Pid]),
+    Tik = spawn(ecc, tik, [Pid, self()]),
     Pid ! {message, Message},
+    io:format("~p",[Message]),
     timer:sleep(10000),
     exit(Tik,done),
     Pid ! {tik,ok}.
 
-tik(Pid) ->
-    Pid ! {tik},
-    timer:sleep(200),
-    tik(Pid).
+tik(Pid, Parent) ->
+    Proc = process_info(Parent),
+    case lists:nth(3,Proc) of
+        {status,_} ->
+                timer:sleep(200),
+                Pid ! {tik},
+                tik(Pid,Parent);
+        _ -> io:format("exit",[]), exit(self(),exited)
+    end.
+
