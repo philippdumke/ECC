@@ -125,26 +125,18 @@ make_prime(K) when K > 0 ->
     if N > 3 ->
            io:format("Generiere eine ~w stellige Primzahl ", [K]),
            MaxTries = N - 3,
-           P1 = make_prime(MaxTries, N +1),
+           P1 = make_prime(MaxTries, N + rand:uniform(9), K),
            io:format("~n", []),
            P1;
        true -> make_prime(K)
     end.
 
-make_prime(0,_) -> exit(something_happend);
-make_prime(K,P) ->
+make_prime(0,_,Len) -> exit(max_tries_exceeded);
+make_prime(K,P,Len) ->
     io:format(".",[]),
-    case is_mod8(P) of
-        true ->
-            case is_prime(P) of
-                true -> P;
-                false -> make_prime(K-1, P + 8)
-            end;
-        false ->
-            case is_prime(P) of
-                true -> P;
-                false -> make_prime(K-1,P+1)
-            end
+    case is_prime(P) of
+        true -> P;
+        false -> make_prime(K-1,P+1,Len)
     end.
 
 is_mod8(P) ->
@@ -156,7 +148,8 @@ is_mod8(P) ->
 
 make(N) -> new_seed(), make(N,0).
 make(0,D) -> D;
-make(N,D) -> make(N-1,D*10+(rand:uniform(10)-1)).
+make(N,D) ->
+    make(N-1,D*10+(rand:uniform(10)-1)).
 
 %% Generiert einen neuen Seed für einen Zufall. Bei Aufruf wird der neue Seed dem rand:uniform zur Vefügung gestellt.
 new_seed() ->
@@ -199,6 +192,19 @@ euler_kriterium(C,P) ->
        _ -> 0
     end.
 
+new_make_key(Len,A) ->
+    new_seed(),
+    P = make_prime(Len),
+    case P rem 8 == 5 of
+        false -> new_make_key(Len,A);
+        true ->
+            X = get_valid_euklid(P),
+            {X1,X2} = euklid({X,1},{P,0}, 100),
+            io:format("lösung: ~p ~p ~n" ,[X1,X2])
+    end.
+
+
+
 make_key(Len,A) ->
     new_seed(),
     % Erzeugen einer zufälligen Zahl kleiner als P
@@ -208,7 +214,7 @@ make_key(Len,A) ->
     case euler_kriterium(W2,P) of
         false ->
             W = fpow(W2, (P - 1) div 4,P),
-            {X,Y} = euklid({W,1},{P,0}),
+            {X,Y} = euklid({W,1},{P,0}, 100),
             N = calc_n(abs(X),abs(Y),P), %Betrag
             case is_prime(N div 8) of
                 false -> make_key(Len,A); %Abbruch neu anfangen
@@ -283,23 +289,35 @@ ordT({X,Y},K,A) ->
         _ -> ordT(Temp,K+1,A)
     end.
 
+get_valid_euklid(P) ->
+    A = make(length(integer_to_list(P))-1),
+    K = P-1,
+    case fpow(A,K div 2,P) of
+        K -> fpow(A,K div 4,P);
+        _ -> get_valid_euklid(P)
+    end.
 
-euklid( {0,0},B) -> B;
 
-euklid(A,B)  ->
+euklid(_,_,K) when K == 0 -> error;
+euklid( {0,0},B,_) -> B;
+
+euklid(A,B,K)  ->
     case is_less(A,B) of
         true ->
                 {A1,A2} = A,
                 {B1,B2} = B,
                 io:format("A: ~p ~p ~n",[A1,A2]),
-                E1 = ((B1 * A1) + (B2 * A2)) / (pow(A1,2) + pow(A2,2)),
-                E2 = ((B1 * A2) + (B2 * A1)) / (pow(A1,2) + pow(A2,2)),
+                E1 = ((B1 * A1) + (B2 * -A2)) / (pow(A1,2) + pow(A2,2)),
+                E2 = ((B1 * -A2) + (B2 * A1)) / (pow(A1,2) + pow(A2,2)),
                 io:format("E: ~p ~p ~n",[E1,E2]),
                 {F1,F2} = c_to_Z({E1,E2}),
+                io:format("F: ~p ~p ~n",[F1,F2]),
                 C1 = B1 - (A1 * F1 - A2 * F2),
                 C2 = B2 - (A1 * F2 + A2 * F1),
-                euklid({C1,C2},A);
-        false -> euklid (B,A)
+                io:format("C: ~p ~p ~n",[C1,C2]),
+                io:format("B: ~p ~p ~n",[B1,B2]),
+                euklid({C1,C2},A, K-1);
+        false -> io:format("false",[]),euklid (B,A, K-1)
     end.
 
 
@@ -327,7 +345,7 @@ is_less(A,B) ->
     A_abs = pow(A1,2) + pow(A2,2),
     B_abs = pow(B1,2) + pow(B2,2),
     if A_abs < B_abs -> true;
-       A_abs == B_abs -> false;
+       A_abs == B_abs -> true;
        true -> false
     end.
 
