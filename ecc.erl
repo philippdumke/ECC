@@ -200,7 +200,16 @@ new_make_key(Len,A) ->
         true ->
             X = get_valid_euklid(P),
             {X1,X2} = euklid({X,1},{P,0}, 100),
-            io:format("lösung: ~p ~p ~n" ,[X1,X2])
+            io:format("lösung: ~p ~p ~n" ,[X1,X2]),
+            N = calc_n(abs(X1),abs(X2), P),
+            io:format("N: ~p~n",[N]),
+            case is_prime(N div 8) of
+                false -> new_make_key(Len,A); %Abbruch neu anfangen
+                true ->
+                    Point = calc_point(Len, P, A),
+                    {P1,P2} = Point,
+                    io:format("Point: ~p ~p ~n",[P1,P2])
+            end
     end.
 
 
@@ -235,12 +244,13 @@ calc_point(Len, P,A) ->
         0 -> exit("eulerkriterium ist komisch");
         true ->
             L = P - 1,
-            Temp =  fpow(R,(P - 1) / 4, P),
+            io:format("fpow( ~p, ~p, ~p)",[R,(P-1) div 4,P]),
+            Temp =  fpow(R,(P - 1) div 4, P),
             io:format("calc_point Temp: ~p, L: ~p ~n",[Temp,L]),
             case Temp of
-                1 -> {R1 , fpow(R,( P + 3) / 8, P)};
+                1 -> {R1 , fpow(R,( P + 3) div 8, P)};
                 L ->
-                    R2 = ((P+1) div 2) * fpow((4 * R), ((p + 3) div 8), P) rem P,
+                    R2 = ((P+1) div 2) * fpow((4 * R), ((P + 3) div 8), P) rem P,
                     Ordnung = ordT({R1 , R2},0,A),
                     case Ordnung of
                         false -> calc_point(Len,P,A);
@@ -267,14 +277,14 @@ tangente({X1,_},{X2,_}) when X1 == X2 ->
     unendlichFernerPunkt;
 
 tangente({X1,Y1},{X2,Y2}) ->
-    M = (Y2-Y1) / (X2-X1),
+    M = (Y2-Y1) div (X2-X1),
     X3 = pow(M,2) - X1 - X2,
     {X3, -(M * (X3 - X1) + Y1)}.
 
 sehne({_,Y},_) when Y == 0 ->
     unendlichFernerPunkt;
 sehne({X,Y},A) ->
-    M = (3 * pow(X, 2) + A) / (2 * Y),
+    M = (3 * pow(X, 2) + A) div (2 * Y),
     X3 = pow(M,2) - (2 * X),
     {X3, -(M * (X3 - X) + Y)}.
 
@@ -300,7 +310,7 @@ get_valid_euklid(P) ->
 
 euklid(_,_,K) when K == 0 -> error;
 euklid( {0,0},B,_) -> B;
-
+euklid({A1,A2},{B1,B2},_) when A1 =:= B1, B2 =:= A2 -> {A1,A2};
 euklid(A,B,K)  ->
     case is_less(A,B) of
         true ->
@@ -317,6 +327,7 @@ euklid(A,B,K)  ->
                 io:format("C: ~p ~p ~n",[C1,C2]),
                 io:format("B: ~p ~p ~n",[B1,B2]),
                 euklid({C1,C2},A, K-1);
+        equals -> A;
         false -> io:format("false",[]),euklid (B,A, K-1)
     end.
 
@@ -345,7 +356,7 @@ is_less(A,B) ->
     A_abs = pow(A1,2) + pow(A2,2),
     B_abs = pow(B1,2) + pow(B2,2),
     if A_abs < B_abs -> true;
-       A_abs == B_abs -> true;
+       A_abs == B_abs -> equals;
        true -> false
     end.
 
