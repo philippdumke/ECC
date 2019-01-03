@@ -70,13 +70,23 @@ test_block(Message, Len, Pid) ->
     exit(Tik, done),
     Pid ! {tik,ok}.
 
+add_Block(0,Result) -> Result;
+add_Block(K,Result) ->
+    add_Block(K-1,lists:append(Result,[32])).
+
 %% Aufruf als Thread
 %% Generiert aus einem String eine Liste aus Blöcken
+%% Strings werden ergänzt, sodass sie immer eine grade Anzahl an Blöcken ergeben.
 %% Sendet Log Nachrichten an die GUI
 text_to_block(Message, Blocklaenge, Pid) ->
     Len = length(Message),
     %Pid !{message, string:concat("Länge der Eingabe: ", Len)},
-    Result = ublock(Message, Blocklaenge, []),
+
+    Len = length(Message) rem (Blocklaenge * 2),
+    if Len == 0 ->  Result = ublock(Message,Blocklaenge,[]);
+       Len > Blocklaenge -> Result = ublock(Message,Blocklaenge,[]);
+      true -> Result = ublock(lists:append(Message,add_Block(Blocklaenge,[])),Blocklaenge,[])
+    end,
     Pid ! {message, "Liste aus Blöcken wurde erstellt" },
     Result.
 
