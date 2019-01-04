@@ -144,7 +144,8 @@ make_prime(K) when K > 0 ->
 make_prime(0,_,Len) -> exit(max_tries_exceeded);
 make_prime(K,P,Len) ->
     io:format(".",[]),
-    case is_prime(P) of
+    %case miller_rabin:is_prime(P) of
+    case ez_crypt_miller_rabin:is_probably_prime(P) of
         true -> P;
         false -> make_prime(K-1,P+1,Len)
     end.
@@ -202,23 +203,37 @@ euler_kriterium(C,P) ->
        _ -> 0
     end.
 
+calc_key(Len, A) ->
+    Proc = prime:spawnPrimes(self(),4,165),
+    Key = new_make_key(Len, A),
+    kill(Proc),
+    Key.
+
+kill(Proc) when length(Proc) == 1 -> exit(hd(Proc),done);
+kill(Proc) ->
+    io:format("Kill: ~p~n", [hd(Proc)]),
+    exit(hd(Proc),done),
+    kill(tl(Proc)).
+
 new_make_key(Len,A) ->
     new_seed(),
-    P = make_prime(Len),
-    case P rem 8 == 5 of
-        false -> new_make_key(Len,A);
-        true ->
-            X = get_valid_euklid(P),
-            {X1,X2} = euklid({X,1},{P,0}, 100),
-            io:format("lösung: ~p ~p ~n" ,[X1,X2]),
-            N = calc_n(abs(X1),abs(X2), P),
-            io:format("N: ~p~n",[N]),
-            case is_prime(N div 8) of
-                false -> new_make_key(Len,A); %Abbruch neu anfangen
+    receive
+        {prime, P} ->
+            case P rem 8 == 5 of
+                false -> new_make_key(Len,A);
                 true ->
-                    Point = calc_point(Len, P, A),
-                    {P1,P2} = Point,
-                    io:format("Point: ~p ~p ~n",[P1,P2])
+                    X = get_valid_euklid(P),
+                    {X1,X2} = euklid({X,1},{P,0}),
+                    io:format("lösung: ~p ~p ~n" ,[X1,X2]),
+                    N = calc_n(abs(X1),abs(X2), P),
+                    io:format("N: ~p~n",[N]),
+                    case is_prime(N div 8) of
+                        false -> new_make_key(Len,A); %Abbruch neu anfangen
+                        true ->
+                            Point = calc_point(Len, P, A),
+                            {P1,P2} = Point,
+                            io:format("Point: ~p ~p ~n",[P1,P2])
+                    end
             end
     end.
 
@@ -233,7 +248,7 @@ make_key(Len,A) ->
     case euler_kriterium(W2,P) of
         false ->
             W = fpow(W2, (P - 1) div 4,P),
-            {X,Y} = euklid({W,1},{P,0}, 100),
+            {X,Y} = euklid({W,1},{P,0}),
             N = calc_n(abs(X),abs(Y),P), %Betrag
             case is_prime(N div 8) of
                 false -> make_key(Len,A); %Abbruch neu anfangen
@@ -318,17 +333,16 @@ get_valid_euklid(P) ->
     end.
 
 
-euklid(_,_,K) when K == 0 -> error;
-euklid( {0,0},B,_) -> B;
-euklid({A1,A2},{B1,B2},_) when A1 =:= B1, B2 =:= A2 -> {A1,A2};
-euklid(A,B,K)  ->
+euklid( {0,0},B) -> B;
+euklid({A1,A2},{B1,B2}) when A1 =:= B1, B2 =:= A2 -> {A1,A2};
+euklid(A,B)  ->
     case is_less(A,B) of
         true ->
                 {A1,A2} = A,
                 {B1,B2} = B,
                 io:format("A: ~p ~p ~n",[A1,A2]),
-                E1 = ((B1 * A1) + (B2 * -A2)) / (pow(A1,2) + pow(A2,2)),
-                E2 = ((B1 * -A2) + (B2 * A1)) / (pow(A1,2) + pow(A2,2)),
+                E1 = ((B1 * A1) + (B2 * -A2)) div (pow(A1,2) + pow(A2,2)),
+                E2 = ((B1 * -A2) + (B2 * A1)) div (pow(A1,2) + pow(A2,2)),
                 io:format("E: ~p ~p ~n",[E1,E2]),
                 {F1,F2} = c_to_Z({E1,E2}),
                 io:format("F: ~p ~p ~n",[F1,F2]),
@@ -336,9 +350,9 @@ euklid(A,B,K)  ->
                 C2 = B2 - (A1 * F2 + A2 * F1),
                 io:format("C: ~p ~p ~n",[C1,C2]),
                 io:format("B: ~p ~p ~n",[B1,B2]),
-                euklid({C1,C2},A, K-1);
+                euklid({C1,C2},A);
         equals -> A;
-        false -> io:format("false",[]),euklid (B,A, K-1)
+        false -> io:format("false",[]),euklid (B,A)
     end.
 
 
