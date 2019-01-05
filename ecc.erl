@@ -79,7 +79,7 @@ add_Block(K,Result) ->
 %% Strings werden ergänzt, sodass sie immer eine grade Anzahl an Blöcken ergeben.
 %% Sendet Log Nachrichten an die GUI
 text_to_block(Message, Blocklaenge, Pid) ->
-    Len = length(Message),
+    %Len = length(Message),
     %Pid !{message, string:concat("Länge der Eingabe: ", Len)},
 
     Len = length(Message) rem (Blocklaenge * 2),
@@ -205,9 +205,9 @@ euler_kriterium(C,P) ->
 
 calc_key(Len, A) ->
     Proc = prime:spawnPrimes(self(),4,165),
-    Key = new_make_key(Len, A),
+    Point = new_make_key(Len, A),
     kill(Proc),
-    Key.
+    Point.
 
 kill(Proc) when length(Proc) == 1 -> exit(hd(Proc),done);
 kill(Proc) ->
@@ -231,8 +231,8 @@ new_make_key(Len,A) ->
                         false -> new_make_key(Len,A); %Abbruch neu anfangen
                         true ->
                             Point = calc_point(Len, P, A),
-                            {P1,P2} = Point,
-                            io:format("Point: ~p ~p ~n",[P1,P2])
+                            {P1,P2,P} = Point,
+                            io:format("Point: ~p ~p ~n ~n Prim: ~p",[P1,P2,P])
                     end
             end
     end.
@@ -276,7 +276,7 @@ calc_point(Len, P,A) ->
                 1 -> {R1 , fpow(R,( P + 3) div 8, P)};
                 L ->
                     R2 = ((P+1) div 2) * fpow((4 * R), ((P + 3) div 8), P) rem P,
-                    Ordnung = ordT({R1 , R2},0,A),
+                    Ordnung = ordT({R1 , R2},0,A,P),
                     case Ordnung of
                         false -> calc_point(Len,P,A);
                         _ -> {R1,R2}
@@ -298,30 +298,61 @@ c_to_Z({A1,A2}) ->
     {B1,B2}.
 
 
-tangente({X1,_},{X2,_}) when X1 == X2 ->
+tangente({X1,_},{X2,_},_) when X1 == X2 ->
     unendlichFernerPunkt;
 
-tangente({X1,Y1},{X2,Y2}) ->
+tangente({X1,Y1},{X2,Y2},P) ->
     M = (Y2-Y1) div (X2-X1),
-    X3 = pow(M,2) - X1 - X2,
-    {X3, -(M * (X3 - X1) + Y1)}.
+    X3 = (pow(M,2) - X1 - X2) rem P,
+    if X3 < 0 -> X4 = X3 +P;
+       true -> X4 = X3
+    end,
+    Y3 = (-M * (X4 - X1) - Y1) rem P,
+    if Y3 < 0 -> Y4 = Y3 + P;
+       true -> Y4 = Y3
+    end,
+    {X4,Y4}.
 
-sehne({_,Y},_) when Y == 0 ->
+
+sehne({_,Y},_,_) when Y == 0 ->
     unendlichFernerPunkt;
-sehne({X,Y},A) ->
-    M = (3 * pow(X, 2) + A) div (2 * Y),
-    X3 = pow(M,2) - (2 * X),
-    {X3, -(M * (X3 - X) + Y)}.
+sehne({X,Y},A,P) ->
+    M = (3 * pow(X, 2) + A) * multiplikativInverses(2 * Y,P),
+    X3 = fpow(M,2,P) - (2 * X) rem P,
+    if X3 < 0 -> X4 = X3 + P;
+      true -> X4 = X3
+    end,
+   Y1 = (-M * (X4 - X) - Y) rem P,
+   if Y1 < 0 -> Y2 = Y1 + P;
+      true -> Y2 = Y1
+    end,
+   {X4,Y2}.
 
+
+multiplikativInverses(A,M) ->
+    {_,X,_} = extggT(A,M),
+    Erg = X rem M,
+    if Erg < 0 -> Erg + M;
+          true -> Erg
+    end.
+
+%%
+%% Ausgabe des Tubels wenn B = 0
+extggT(A,0) -> {A,1,0};
+
+extggT(A,B) ->
+    {G,U,X} = extggT(B, A rem B),
+    Q = A div B, %Floor division
+    {G,X,(U - (Q * X))}.
 
 %Testet ob die Ordnung Element 2,4,8 ist
-ordT({_,_},K,_) when K == 4 ->
+ordT({_,_},K,_,_) when K == 4 ->
     true;
-ordT({X,Y},K,A) ->
-    Temp = sehne({X,Y},A),
+ordT({X,Y},K,A,P) ->
+    Temp = sehne({X,Y},A,P),
     case Temp of
         unendlichFernerPunkt -> false;
-        _ -> ordT(Temp,K+1,A)
+        _ -> ordT(Temp,K+1,A,P)
     end.
 
 get_valid_euklid(P) ->
@@ -340,19 +371,19 @@ euklid(A,B)  ->
         true ->
                 {A1,A2} = A,
                 {B1,B2} = B,
-                io:format("A: ~p ~p ~n",[A1,A2]),
+                %io:format("A: ~p ~p ~n",[A1,A2]),
                 E1 = ((B1 * A1) + (B2 * -A2)) div (pow(A1,2) + pow(A2,2)),
                 E2 = ((B1 * -A2) + (B2 * A1)) div (pow(A1,2) + pow(A2,2)),
-                io:format("E: ~p ~p ~n",[E1,E2]),
+                %io:format("E: ~p ~p ~n",[E1,E2]),
                 {F1,F2} = c_to_Z({E1,E2}),
-                io:format("F: ~p ~p ~n",[F1,F2]),
+                %io:format("F: ~p ~p ~n",[F1,F2]),
                 C1 = B1 - (A1 * F1 - A2 * F2),
                 C2 = B2 - (A1 * F2 + A2 * F1),
-                io:format("C: ~p ~p ~n",[C1,C2]),
-                io:format("B: ~p ~p ~n",[B1,B2]),
+                %io:format("C: ~p ~p ~n",[C1,C2]),
+                %io:format("B: ~p ~p ~n",[B1,B2]),
                 euklid({C1,C2},A);
         equals -> A;
-        false -> io:format("false",[]),euklid (B,A)
+        false -> euklid (B,A)
     end.
 
 
@@ -402,4 +433,7 @@ tik(Pid, Parent) ->
                 tik(Pid,Parent);
         _ -> io:format("exit",[]), exit(self(),exited)
     end.
+
+hash(Input, Pid, Token) ->
+    Pid ! {hash, Token, lists:flatten([integer_to_list(X,16) || <<X>> <= crypto:hash(md5,unicode:characters_to_nfc_binary(Input))])}.
 

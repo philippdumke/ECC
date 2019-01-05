@@ -211,10 +211,10 @@ loop(State) ->
     %% Hash berechnen
     #wx{id = 107, event=#wxCommand{type = command_button_clicked}} ->
             Message = wxTextCtrl:getValue(TEingabe),
-            Proc = spawn(ecc, compute_Hash,[Message, self()]),
+            Proc = spawn(ecc, hash,[Message, self(), left]),
             to_loop(State, Proc);
 
-    {ausgabe, hash, Result} ->
+    {hash,left, Result} ->
             wxTextCtrl:changeValue(TEHash, Result),
             loop(State);
 
