@@ -59,7 +59,7 @@ make_window() ->
     %% Priv Key
     STPrivKey1 = wxStaticText:new(Panel,2010, "PrivKey",[]),
     STPrivKey2 = wxStaticText:new(Panel,2011," ",[]),
-    PrivKey = wxTextCtrl:new(Panel,1004,[{value," "},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
+    PrivKey = wxTextCtrl:new(Panel,1004,[{value,""},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
 
     %% Public Key
     TPubKey = wxTextCtrl:new(Panel,1005,[{value,""},{style, ?wxDEFAULT bor ?wxTE_MULTILINE}]),
@@ -82,7 +82,7 @@ make_window() ->
     Kill = wxButton:new(Panel, 105,[{label, "Kill"}]),
     Clear = wxButton:new(Panel, 106,[{label, "Clear"}]),
     HashB =  wxButton:new(Panel, 107,[{label, "Hash"}]),
-
+    Export = wxButton:new(Panel,108,[{label,"Export"}]),
 
     Status = wxTextCtrl:new(Panel,1010, [{value,"ok."},{style,?wxDEFAULT bor ?wxTE_READONLY}]),
     % Eingabe Beschriftung
@@ -135,6 +135,7 @@ make_window() ->
     wxSizer:add(Buttons2,Kill,[{flag, ?wxEXPAND},{proportion,1}]),
     wxSizer:add(Buttons2, Clear,[{flag, ?wxEXPAND},{proportion,1}]),
     wxSizer:add(Buttons2, HashB,[{flag,?wxEXPAND},{proportion,1}]),
+    wxSizer:add(Buttons2,Export,[{flag,?wxEXPAND},{proportion,1}]),
 
     wxSizer:add(RightSide,Buttons,[{flag,?wxEXPAND}]),
     wxSizer:add(RightSide,Buttons2,[{flag,?wxEXPAND}]),
@@ -215,6 +216,23 @@ loop(State) ->
             Proc = spawn(ecc, hash,[Message, self(), left]),
             to_loop(State, Proc);
 
+    #wx{id = 108, event=#wxCommand{type = command_button_clicked}} ->
+            A = wxTextCtrl:getValue(PrivKey) ++ wxTextCtrl:getValue(TPubKey),
+            io:format("~p",[A]),
+            case length(A) == 0 of
+                false ->  {K,P,N,{P1,P2},{Y1,Y2}} = decodeOefKey(State),
+                          Priv = wxTextCtrl:getValue(PrivKey),
+                          String = K ++ ", " ++ P ++ ", " ++  N ++ ", " ++ P1 ++ ", " ++ P2 ++ ", " ++  Y1 ++ ", " ++ Y2 ++ ", " ++ Priv,
+                          file:write_file(key,String);
+                true -> {ok,String} = file:read_file(key),
+                        List = string:tokens(binary_to_list(String), ", "),
+                        ReadOefKey = "K:" ++ lists:nth(1,List) ++ "\nP:" ++ lists:nth(2,List) ++ "\nN:" ++ lists:nth(3,List) ++ "\nX:" ++ lists:nth(4,List) ++ "\nY:" ++ lists:nth(5,List) ++ "\nY:" ++ lists:nth(6,List),
+                        wxTextCtrl:changeValue(TPubKey, ReadOefKey),
+                        wxTextCtrl:changeValue(PrivKey,lists:nth(7,List))
+            end,
+            loop(State);
+
+
     {hash,left, Result} ->
             wxTextCtrl:changeValue(TEHash, Result),
             loop(State);
@@ -252,8 +270,20 @@ loop(State) ->
 
 %% Fügt eine neue Pid an und ruft den loop auf
 to_loop(State,Proc) ->
-  {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,Pid} = State,
-  loop({Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,lists:append(Pid, [Proc])}).
+  {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,Pid} = State,
+  loop({Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,lists:append(Pid, [Proc])}).
+
+decodeOefKey(State) ->
+    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,Pid} = State,
+    Tokens = string:tokens(wxTextCtrl:getValue(TPubKey),"K: P: N: X: Y: , \n"),
+    K = lists:nth(1,Tokens),
+    P = lists:nth(2,Tokens),
+    N = lists:nth(3,Tokens),
+    P1 = lists:nth(4,Tokens),
+    P2 = lists:nth(5,Tokens),
+    Y1 = lists:nth(6,Tokens),
+    Y2 = lists:nth(7,Tokens),
+    {K,P,N,{P1,P2},{Y1,Y2}}.
 
 
 kill(Pid) when length(Pid) == 0 ->

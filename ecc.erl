@@ -204,9 +204,13 @@ euler_kriterium(C,P) ->
     end.
 
 calc_key(Len, A,Pid) ->
+    Tik = spawn(ecc,tik, [Pid, self()]),
+    link(Tik),
     Proc = prime:spawnPrimes(self(),4,Len),
     Point = new_make_key(Len, A,Pid),
     kill(Proc),
+    exit(Tik,done),
+    Pid ! {tik,ok},
     Point.
 
 kill(Proc) when length(Proc) == 1 -> exit(hd(Proc),done);
@@ -483,3 +487,47 @@ fmult_add(Punkt,P,A,Plist) when length(Plist) == 1 ->
 fmult_add(Punkt,P,A,Plist) ->
     NP = tangente(Punkt,hd(Plist),P),
     fmult_add(NP,P,A,tl(Plist)).
+
+
+getBlockLen(P,C,S) ->
+%4294967296
+    A = ublock(S,C,[]),
+    case hd(A) < P of
+        false -> C-1;
+        true -> getBlockLen(P,C+1,lists:append([4294967295],S))
+    end.
+
+verschlueseln(M,B,K,P,N,P1,P2,Y1,Y2,A,Pid) ->
+    Bllen = getBlockLen(P,1,[2949672965]),
+    case B > Bllen of
+        false -> Block = text_to_block(M,B,Pid),
+                 {K,Res1,Res2} = genk(Y1,Y2,N,P,A),
+
+        true -> exit(error)
+    end.
+
+%% Algorithmus 3.3 Punkt 1) 4
+genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A) ->
+    A = fmult({G1,G2},P,A,K),
+    B1 = C1 * M1 rem P,
+    B2 = C2 * M2 rem P,
+    {A,B1,B2}.%% Fertiges Chiffrat ?
+
+%Algorithmus §.3 Punkt 1) 3
+genk(Y1,Y2,N,P,A) ->
+    K = make_less_than(N),
+    {Res1,Res2} = fmult({Y1,Y2},P,A,K).
+    if Res1 == 0 -> genk(Y1,Y2,N,P,A);
+       Res2 == 0 -> genk(Y1,Y2,N,P,A);
+       true -> {K,Res1,Res2}
+    end.
+
+make_less_than(A) ->
+    make_less_than(A,length(integer_to_list(A))).
+make_less_than(A,Len) ->
+    B = make(Len),
+    if B < A -> B;
+       true -> make_less_than(A,Len)
+    end.
+
+
