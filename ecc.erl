@@ -203,9 +203,9 @@ euler_kriterium(C,P) ->
        _ -> 0
     end.
 
-calc_key(Len, A) ->
-    Proc = prime:spawnPrimes(self(),4,165),
-    Point = new_make_key(Len, A),
+calc_key(Len, A,Pid) ->
+    Proc = prime:spawnPrimes(self(),4,Len),
+    Point = new_make_key(Len, A,Pid),
     kill(Proc),
     Point.
 
@@ -215,12 +215,12 @@ kill(Proc) ->
     exit(hd(Proc),done),
     kill(tl(Proc)).
 
-new_make_key(Len,A) ->
+new_make_key(Len,A,Pid) ->
     new_seed(),
     receive
         {prime, P} ->
             case P rem 8 == 5 of
-                false -> new_make_key(Len,A);
+                false -> new_make_key(Len,A,Pid);
                 true ->
                     X = get_valid_euklid(P),
                     {X1,X2} = euklid({X,1},{P,0}),
@@ -228,16 +228,30 @@ new_make_key(Len,A) ->
                     N = calc_n(abs(X1),abs(X2), P),
                     io:format("N: ~p~n",[N]),
                     case is_prime(N div 8) of
-                        false -> new_make_key(Len,A); %Abbruch neu anfangen
+                        false -> new_make_key(Len,A,Pid); %Abbruch neu anfangen
                         true ->
                             Point = calc_point(Len, P, A),
                             {P1,P2,P} = Point,
+                            make_key_extension(N,Point,A,Pid),
                             io:format("Point: ~p ~p ~n ~n Prim: ~p",[P1,P2,P])
                     end
             end
     end.
 
+make_key_extension(N,Punkt,A,Pid) ->
+    {P1,P2,P} = Punkt,
+    OS = N div 8,
+    X = make_less_os(OS,length(integer_to_list(OS))),
+    Y = fmult({P1,P2},P,A,X),
+    Pid ! {ausgabe, priv, X},
+    Pid ! {ausgabe, oef, {1,P,N,P1,P2,Y}}.
 
+
+make_less_os(OS,Len) ->
+    N = make(Len),
+    if N =< OS -> N;
+        true -> make_less_os(OS,Len)
+    end.
 
 make_key(Len,A) ->
     new_seed(),
@@ -273,13 +287,13 @@ calc_point(Len, P,A) ->
             Temp =  fpow(R,(P - 1) div 4, P),
             io:format("calc_point Temp: ~p, L: ~p ~n",[Temp,L]),
             case Temp of
-                1 -> {R1 , fpow(R,( P + 3) div 8, P)};
+                1 -> {R1 , fpow(R,( P + 3) div 8, P),P};
                 L ->
                     R2 = ((P+1) div 2) * fpow((4 * R), ((P + 3) div 8), P) rem P,
                     Ordnung = ordT({R1 , R2},0,A,P),
                     case Ordnung of
                         false -> calc_point(Len,P,A);
-                        _ -> {R1,R2}
+                        _ -> {R1,R2,P}
                     end;
                 _ -> exit("Fehler")
             end
@@ -302,7 +316,7 @@ tangente({X1,_},{X2,_},_) when X1 == X2 ->
     unendlichFernerPunkt;
 
 tangente({X1,Y1},{X2,Y2},P) ->
-    M = (Y2-Y1) div (X2-X1),
+    M = (Y2-Y1) * multiplikativInverses(X2-X1,P),
     X3 = (pow(M,2) - X1 - X2) rem P,
     if X3 < 0 -> X4 = X3 +P;
        true -> X4 = X3
@@ -437,3 +451,35 @@ tik(Pid, Parent) ->
 hash(Input, Pid, Token) ->
     Pid ! {hash, Token, lists:flatten([integer_to_list(X,16) || <<X>> <= crypto:hash(md5,unicode:characters_to_nfc_binary(Input))])}.
 
+split(Input,Result) when length(Input) == 1 -> lists:append([hd(Input)],Result).
+
+
+
+fmult(Punkt,P,A,Faktor) ->
+    Bin = lists:reverse(integer_to_list(Faktor,2)),
+    case hd(Bin) of
+        49 -> Plist = fmult(Punkt,P,A,tl(Bin),[Punkt]);
+        48 -> Plist = fmult(Punkt,P,A,tl(Bin),[]);
+        true -> Plist = [],
+                exit(wrong_representation)
+    end,
+    fmult_add(hd(Plist),P,A,tl(Plist)).
+
+fmult(Punkt,P,A,Bin,Result) when length(Bin) == 0 -> Result;
+
+
+fmult(Punkt,P,A,Bin,Result) ->
+    NP = sehne(Punkt,A,P),
+    % 1 = 49 und 0 = 48
+    case hd(Bin) of
+        49 -> fmult(NP,P,A,tl(Bin),lists:append(Result,[NP]));
+        48 -> fmult(NP,P,A,tl(Bin),Result);
+        true -> Result
+    end.
+fmult_add(Punkt,P,A,Plist) when length(Plist) == 0 -> Punkt;
+
+fmult_add(Punkt,P,A,Plist) when length(Plist) == 1 ->
+    tangente(Punkt,hd(Plist),P);
+fmult_add(Punkt,P,A,Plist) ->
+    NP = tangente(Punkt,hd(Plist),P),
+    fmult_add(NP,P,A,tl(Plist)).

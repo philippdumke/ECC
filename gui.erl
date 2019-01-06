@@ -160,11 +160,11 @@ make_window() ->
     wxFrame:connect(Frame, close_window),
     wxFrame:connect(Frame, command_button_clicked),
 
-    {Frame,TEingabe,TAusgabe,TBlockL,TLog,Status,TEHash,[]}.
+    {Frame,TEingabe,TAusgabe,TBlockL,TLog,Status,TEHash,PrivKey,TPubKey,[]}.
 
 
 loop(State) ->
-    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,Pid} = State,
+    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,Pid} = State,
     receive
         #wx{event=#wxClose{}} ->
             wxWindow:destroy(Frame),
@@ -194,6 +194,7 @@ loop(State) ->
 
     #wx{id = 104, event=#wxCommand{type = command_button_clicked}} ->
         wxTextCtrl:changeValue(Tlog,wxTextCtrl:getValue(Tlog) ++ "\n \n" ++ "========>>>>> Generiere Schlüssel"),
+        spawn(ecc,calc_key,[100,-1,self()]),
         loop(State);
 
 
@@ -219,8 +220,16 @@ loop(State) ->
             loop(State);
 
     {message,A} ->
-        wxTextCtrl:changeValue(Tlog,(wxTextCtrl:getValue(Tlog) ++ "\n" ++ A)),
-        loop(State);
+            wxTextCtrl:changeValue(Tlog,(wxTextCtrl:getValue(Tlog) ++ "\n" ++ A)),
+            loop(State);
+
+    {ausgabe,priv,A} ->
+            wxTextCtrl:changeValue(PrivKey,integer_to_list(A)),
+            loop(State);
+    {ausgabe,oef,{K,P,N,P1,P2,{Y1,Y2}}} ->
+            io:format(" hallo",[]),
+            wxTextCtrl:changeValue(TPubKey,"K:" ++ integer_to_list(K) ++ "\n P: " ++ integer_to_list(P) ++ "\n N: " ++ integer_to_list(N) ++ "\n X: " ++ integer_to_list(P1) ++ "\n Y: " ++ integer_to_list(P2) ++ "\n Y: " ++ integer_to_list(Y1) ++ " ,\n" ++ integer_to_list(Y2)),
+            loop(State);
 
     {tik} ->
         case wxTextCtrl:getValue(Status) of
