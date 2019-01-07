@@ -320,7 +320,11 @@ tangente({X1,_},{X2,_},_) when X1 == X2 ->
     unendlichFernerPunkt;
 
 tangente({X1,Y1},{X2,Y2},P) ->
-    M = (Y2-Y1) * multiplikativInverses(X2-X1,P),
+    Xtemp = X2-X1,
+    if Xtemp < 0 -> Xinf = Xtemp + P;
+       true -> Xinf = Xtemp
+    end,
+    M = (Y2-Y1) * multiplikativInverses(Xinf,P),
     X3 = (pow(M,2) - X1 - X2) rem P,
     if X3 < 0 -> X4 = X3 +P;
        true -> X4 = X3
@@ -497,13 +501,17 @@ getBlockLen(P,C,S) ->
         true -> getBlockLen(P,C+1,lists:append([4294967295],S))
     end.
 
-verschlueseln(M,B,K,P,N,P1,P2,Y1,Y2,A,Pid) ->
-    Bllen = getBlockLen(P,1,[2949672965]),
+verschluesseln(M,B,K,P,N,P1,P2,Y1,Y2,A,Pid) ->
+    Bllen = getBlockLen(P,1,[4294967295]),
+    io:format("~p",[P]),
     case B > Bllen of
-        false -> Block = text_to_block(M,B,Pid),
+        false -> Pid ! {message, "[enc] Blocklänge ok. Starte Blockchiffre"},
+                 Block = text_to_block(M,B,Pid),
                  {K,Res1,Res2} = genk(Y1,Y2,N,P,A),
+                 Pid ! {message, "[enc] K: " ++ integer_to_list(K) ++ "Punkt: " ++ integer_to_list(Res1) ++ ", " ++ integer_to_list(Res2)};
 
-        true -> exit(error)
+        true ->  Pid ! {message, ("[enc] Blocklänge " ++ integer_to_list(B) ++ " ist zu groß")},
+                 exit(error)
     end.
 
 %% Algorithmus 3.3 Punkt 1) 4
@@ -516,7 +524,7 @@ genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A) ->
 %Algorithmus §.3 Punkt 1) 3
 genk(Y1,Y2,N,P,A) ->
     K = make_less_than(N),
-    {Res1,Res2} = fmult({Y1,Y2},P,A,K).
+    {Res1,Res2} = fmult({Y1,Y2},P,A,K),
     if Res1 == 0 -> genk(Y1,Y2,N,P,A);
        Res2 == 0 -> genk(Y1,Y2,N,P,A);
        true -> {K,Res1,Res2}

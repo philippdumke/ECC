@@ -8,7 +8,7 @@ start() ->
 
 make_window() ->
     Server = wx:new(),
-    Frame = wxFrame:new(Server, -1, "ECC", [{size,{1200, 800}}]),
+    Frame = wxFrame:new(Server, -1, "ECC", [{size,{1200, 1000}}]),
     Panel  = wxPanel:new(Frame),
 
 %% Erstellen der Sizer für das Layout
@@ -34,9 +34,22 @@ make_window() ->
 
     OefKeyHd = wxStaticBoxSizer:new(?wxVERTICAL,Panel,[]),
     OefKeyTL = wxStaticBoxSizer:new(?wxHORIZONTAL,Panel,[]),
+    PHd = wxStaticBoxSizer:new(?wxVERTICAL,Panel,[]),
+    PTl = wxStaticBoxSizer:new(?wxHORIZONTAL,Panel,[]),
+    NHd = wxStaticBoxSizer:new(?wxVERTICAL,Panel,[]),
+    NTl = wxStaticBoxSizer:new(?wxHORIZONTAL,Panel,[]),
+    P1Hd = wxStaticBoxSizer:new(?wxVERTICAL,Panel,[]),
+    P1Tl = wxStaticBoxSizer:new(?wxHORIZONTAL,Panel,[]),
+    P2Hd = wxStaticBoxSizer:new(?wxVERTICAL,Panel,[]),
+    P2Tl = wxStaticBoxSizer:new(?wxHORIZONTAL,Panel,[]),
+    Y1Hd = wxStaticBoxSizer:new(?wxVERTICAL,Panel,[]),
+    Y1Tl = wxStaticBoxSizer:new(?wxHORIZONTAL,Panel,[]),
+    Y2Hd = wxStaticBoxSizer:new(?wxVERTICAL,Panel,[]),
+    Y2Tl = wxStaticBoxSizer:new(?wxHORIZONTAL,Panel,[]),
 
     AusgHd = wxStaticBoxSizer:new(?wxVERTICAL,Panel,[]),
     AusgTl = wxStaticBoxSizer:new(?wxHORIZONTAL,Panel,[]),
+
 
 
     %%  Eingabe
@@ -66,6 +79,28 @@ make_window() ->
     STPubKey1 = wxStaticText:new(Panel,2016,"Öff. Key"),
     STPubKey2 = wxStaticText:new(Panel,2017,""),
     STPubKey3 = wxStaticText:new(Panel,2018,""),
+
+    TPubP = wxTextCtrl:new(Panel,1020,[{value,""},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
+    TPubN = wxTextCtrl:new(Panel,1021,[{value,""},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
+    TPubP1 = wxTextCtrl:new(Panel,1022,[{value,""},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
+    TPubP2 = wxTextCtrl:new(Panel,1023,[{value,""},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
+    TPubY1 = wxTextCtrl:new(Panel,1024,[{value,""},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
+    TPubY2 = wxTextCtrl:new(Panel,1025,[{value,""},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
+
+    STPP1 = wxStaticText:new(Panel,2030,"P"),
+    STPP2 = wxStaticText:new(Panel,2031,""),
+    STPN = wxStaticText:new(Panel,2032,"N"),
+    STPN1 =wxStaticText:new(Panel,2033,""),
+    STPPu1 = wxStaticText:new(Panel,2034,"P1"),
+    STPPu2 = wxStaticText:new(Panel,2035,""),
+    STPPu3 = wxStaticText:new(Panel,2036,"P2"),
+    STPPu4 = wxStaticText:new(Panel,2037,""),
+    STPY11 = wxStaticText:new(Panel,2038,"Y1"),
+    STPY12 = wxStaticText:new(Panel,2039,""),
+    STPY21 = wxStaticText:new(Panel,2040,"Y2"),
+    STPY22 = wxStaticText:new(Panel,2041,""),
+
+
     %% Ausgabe
     TAusgabe = wxTextCtrl:new(Panel,1011,[{value, ""},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
     STAus1 = wxStaticText:new(Panel,2012,"Ausgabe",[]),
@@ -119,6 +154,39 @@ make_window() ->
     wxSizer:add(OefKeyTL,OefKeyHd,[]),
     wxSizer:add(OefKeyTL,TPubKey,[{flag,?wxEXPAND},{proportion,1}]),
 
+    wxSizer:add(PHd,STPP1,[]),
+    wxSizer:add(PHd, STPP2,[]),
+    wxSizer:add(PTl, PHd,[]),
+    wxSizer:add(PTl, TPubP,[{flag,?wxEXPAND},{proportion,1}]),
+
+    wxSizer:add(NHd,STPN,[]),
+    wxSizer:add(NHd, STPN1,[]),
+    wxSizer:add(NTl, NHd,[]),
+    wxSizer:add(NTl, TPubN,[{flag,?wxEXPAND},{proportion,1}]),
+
+    wxSizer:add(P1Hd,STPPu1,[]),
+    wxSizer:add(P1Hd, STPPu2,[]),
+    wxSizer:add(P1Tl, P1Hd,[]),
+    wxSizer:add(P1Tl, TPubP1,[{flag,?wxEXPAND},{proportion,1}]),
+
+    wxSizer:add(P2Hd,STPPu3,[]),
+    wxSizer:add(P2Hd, STPPu4,[]),
+    wxSizer:add(P2Tl, P2Hd,[]),
+    wxSizer:add(P2Tl, TPubP2,[{flag,?wxEXPAND},{proportion,1}]),
+
+    wxSizer:add(Y1Hd, STPY11,[]),
+    wxSizer:add(Y1Hd, STPY12,[]),
+    wxSizer:add(Y1Tl, Y1Hd,[]),
+    wxSizer:add(Y1Tl, TPubY1,[{flag,?wxEXPAND},{proportion,1}]),
+
+    wxSizer:add(Y2Hd,STPY21,[]),
+    wxSizer:add(Y2Hd, STPY22,[]),
+    wxSizer:add(Y2Tl, Y2Hd,[]),
+    wxSizer:add(Y2Tl, TPubY2,[{flag,?wxEXPAND},{proportion,1}]),
+
+
+
+
     %% Ausgabe
     wxSizer:add(AusgHd,STAus4,[]),
     wxSizer:add(AusgHd,STAus1,[]),
@@ -150,6 +218,12 @@ make_window() ->
     wxSizer:add(LeftSide,BlockL,[{flag,?wxEXPAND}]),
     wxSizer:add(LeftSide,PrivKeyTl,[{flag,?wxEXPAND}]),
     wxSizer:add(LeftSide,OefKeyTL,[{flag,?wxEXPAND}]),
+    wxSizer:add(LeftSide,PTl,[{flag,?wxEXPAND}]),
+    wxSizer:add(LeftSide,NTl,[{flag,?wxEXPAND}]),
+    wxSizer:add(LeftSide,P1Tl,[{flag,?wxEXPAND}]),
+    wxSizer:add(LeftSide,P2Tl,[{flag,?wxEXPAND}]),
+    wxSizer:add(LeftSide,Y1Tl,[{flag,?wxEXPAND}]),
+    wxSizer:add(LeftSide,Y2Tl,[{flag,?wxEXPAND}]),
     wxSizer:add(GuiSizer,LeftSide,[{flag,?wxEXPAND},{proportion,1}]),
     wxSizer:add(GuiSizer,RightSide,[{flag,?wxEXPAND},{proportion,1}]),
     wxSizer:add(MainSizer,GuiSizer,[{flag,?wxEXPAND}]),
@@ -161,11 +235,11 @@ make_window() ->
     wxFrame:connect(Frame, close_window),
     wxFrame:connect(Frame, command_button_clicked),
 
-    {Frame,TEingabe,TAusgabe,TBlockL,TLog,Status,TEHash,PrivKey,TPubKey,[]}.
+    {Frame,TEingabe,TAusgabe,TBlockL,TLog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,[]}.
 
 
 loop(State) ->
-    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,Pid} = State,
+    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,Pid} = State,
     receive
         #wx{event=#wxClose{}} ->
             wxWindow:destroy(Frame),
@@ -177,7 +251,9 @@ loop(State) ->
         wxTextCtrl:changeValue(Tlog,(wxTextCtrl:getValue(Tlog) ++ "\n \n"++ "========>>>>>  Verschlüsseln")),
         Eingabe = wxTextCtrl:getValue(TEingabe),
         BlockLen = list_to_integer(wxTextCtrl:getValue(TBlockL)),
-        Proc = spawn(ecc,test_block,[Eingabe,BlockLen,self()]),
+        {K,P,N,{P1,P2},{Y1,Y2}} = decodeOefKey(State),
+        io:format("~p",[P]),
+        Proc = spawn(ecc,verschluesseln,[Eingabe,BlockLen,K,P,N,P1,P2,Y1,Y2,-1,self()]),
         to_loop(State,Proc);
 
     {ausgabe,verschluesseln,Result} ->
@@ -218,7 +294,6 @@ loop(State) ->
 
     #wx{id = 108, event=#wxCommand{type = command_button_clicked}} ->
             A = wxTextCtrl:getValue(PrivKey) ++ wxTextCtrl:getValue(TPubKey),
-            io:format("~p",[A]),
             case length(A) == 0 of
                 false ->  {K,P,N,{P1,P2},{Y1,Y2}} = decodeOefKey(State),
                           Priv = wxTextCtrl:getValue(PrivKey),
@@ -246,7 +321,13 @@ loop(State) ->
             loop(State);
     {ausgabe,oef,{K,P,N,P1,P2,{Y1,Y2}}} ->
             io:format(" hallo",[]),
-            wxTextCtrl:changeValue(TPubKey,"K:" ++ integer_to_list(K) ++ "\n P: " ++ integer_to_list(P) ++ "\n N: " ++ integer_to_list(N) ++ "\n X: " ++ integer_to_list(P1) ++ "\n Y: " ++ integer_to_list(P2) ++ "\n Y: " ++ integer_to_list(Y1) ++ " ,\n" ++ integer_to_list(Y2)),
+            wxTextCtrl:changeValue(TPubKey,integer_to_list(K)),
+           wxTextCtrl:changeValue(TPubP, integer_to_list(P)),
+          wxTextCtrl:changeValue(TPubN, integer_to_list(N)),
+         wxTextCtrl:changeValue(TPubP1, integer_to_list(P1)),
+        wxTextCtrl:changeValue(TPubP2, integer_to_list(P2)),
+       wxTextCtrl:changeValue(TPubY1, integer_to_list(Y1)),
+      wxTextCtrl:changeValue(TPubY2, integer_to_list(Y2)),
             loop(State);
 
     {tik} ->
@@ -270,12 +351,13 @@ loop(State) ->
 
 %% Fügt eine neue Pid an und ruft den loop auf
 to_loop(State,Proc) ->
-  {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,Pid} = State,
-  loop({Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,lists:append(Pid, [Proc])}).
+  {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,Pid} = State,
+  loop({Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,lists:append(Pid, [Proc])}).
 
 decodeOefKey(State) ->
-    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,Pid} = State,
+    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,Pid} = State,
     Tokens = string:tokens(wxTextCtrl:getValue(TPubKey),"K: P: N: X: Y: , \n"),
+    io:format("~p", [Tokens]),
     K = lists:nth(1,Tokens),
     P = lists:nth(2,Tokens),
     N = lists:nth(3,Tokens),
@@ -283,6 +365,7 @@ decodeOefKey(State) ->
     P2 = lists:nth(5,Tokens),
     Y1 = lists:nth(6,Tokens),
     Y2 = lists:nth(7,Tokens),
+    io:format("N: ~p",[N]),
     {K,P,N,{P1,P2},{Y1,Y2}}.
 
 
