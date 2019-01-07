@@ -50,6 +50,8 @@ make_window() ->
     AusgHd = wxStaticBoxSizer:new(?wxVERTICAL,Panel,[]),
     AusgTl = wxStaticBoxSizer:new(?wxHORIZONTAL,Panel,[]),
 
+    PrimHd = wxStaticBoxSizer:new(?wxVERTICAL,Panel,[]),
+    PrimTl = wxStaticBoxSizer:new(?wxHORIZONTAL,Panel,[]),
 
 
     %%  Eingabe
@@ -68,6 +70,8 @@ make_window() ->
     TBlockL = wxTextCtrl:new(Panel,1003,[{value,"100"},{style,?wxDEFAULT}]),
     STBlockL1 = wxStaticText:new(Panel,2007,"Blocklänge",[]),
     STBlockL2 = wxStaticText:new(Panel,2008," ",[]),
+    PrimLen = wxTextCtrl:new(Panel,1040,[{value,"200"},{style,?wxDEFAULT}]),
+    STPrim1 = wxStaticText:new(Panel,2050,"Prim Len"),
 
     %% Priv Key
     STPrivKey1 = wxStaticText:new(Panel,2010, "PrivKey",[]),
@@ -140,6 +144,10 @@ make_window() ->
     wxSizer:add(BlockLHd,STBlockL2,[]),
     wxSizer:add(BlockL,BlockLHd,[]),
     wxSizer:add(BlockL,TBlockL,[{flag,?wxEXPAND},{proportion,1}]),
+    wxSizer:add(PrimHd, STPrim1,[{flag,?wxEXPAND}]),
+    wxSizer:add(PrimTl,PrimHd,[{flag,?wxEXPAND},{proportion,1}]),
+    wxSizer:add(PrimTl,PrimLen,[{flag,?wxEXPAND},{proportion,1}]),
+    wxSizer:add(BlockL,PrimTl,[{flag,?wxEXPAND}]),
 
     %% Priv Key
     wxSizer:add(PrivKeyHd,STPrivKey1,[]),
@@ -235,11 +243,11 @@ make_window() ->
     wxFrame:connect(Frame, close_window),
     wxFrame:connect(Frame, command_button_clicked),
 
-    {Frame,TEingabe,TAusgabe,TBlockL,TLog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,[]}.
+    {Frame,TEingabe,TAusgabe,TBlockL,TLog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,[]}.
 
 
 loop(State) ->
-    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,Pid} = State,
+    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,Pid} = State,
     receive
         #wx{event=#wxClose{}} ->
             wxWindow:destroy(Frame),
@@ -252,7 +260,6 @@ loop(State) ->
         Eingabe = wxTextCtrl:getValue(TEingabe),
         BlockLen = list_to_integer(wxTextCtrl:getValue(TBlockL)),
         {K,P,N,{P1,P2},{Y1,Y2}} = decodeOefKey(State),
-        io:format("~p",[P]),
         Proc = spawn(ecc,verschluesseln,[Eingabe,BlockLen,K,P,N,P1,P2,Y1,Y2,-1,self()]),
         to_loop(State,Proc);
 
@@ -271,64 +278,71 @@ loop(State) ->
 
     #wx{id = 104, event=#wxCommand{type = command_button_clicked}} ->
         wxTextCtrl:changeValue(Tlog,wxTextCtrl:getValue(Tlog) ++ "\n \n" ++ "========>>>>> Generiere Schlüssel"),
-        spawn(ecc,calc_key,[100,-1,self()]),
+        Len = list_to_integer(wxTextCtrl:getValue(PrimLen)),
+        spawn(ecc,calc_key,[Len,-1,self()]),
         loop(State);
 
 
     %% Kill Beendet alle Threads, die von der GUI gespawned wurden
     #wx{id = 105, event=#wxCommand{type = command_button_clicked}} ->
-            kill(Pid),
-            wxTextCtrl:changeValue(Status,"ok."),
-            loop(State);
+        kill(Pid),
+        wxTextCtrl:changeValue(Status,"ok."),
+        loop(State);
 
     %% Log Fenster löschen
     #wx{id = 106, event=#wxCommand{type = command_button_clicked}} ->
-            wxTextCtrl:changeValue(Tlog, ""),
-            loop(State);
+        wxTextCtrl:changeValue(Tlog, ""),
+        loop(State);
 
     %% Hash berechnen
     #wx{id = 107, event=#wxCommand{type = command_button_clicked}} ->
-            Message = wxTextCtrl:getValue(TEingabe),
-            Proc = spawn(ecc, hash,[Message, self(), left]),
-            to_loop(State, Proc);
+        Message = wxTextCtrl:getValue(TEingabe),
+        Proc = spawn(ecc, hash,[Message, self(), left]),
+        to_loop(State, Proc);
 
     #wx{id = 108, event=#wxCommand{type = command_button_clicked}} ->
-            A = wxTextCtrl:getValue(PrivKey) ++ wxTextCtrl:getValue(TPubKey),
-            case length(A) == 0 of
-                false ->  {K,P,N,{P1,P2},{Y1,Y2}} = decodeOefKey(State),
-                          Priv = wxTextCtrl:getValue(PrivKey),
-                          String = K ++ ", " ++ P ++ ", " ++  N ++ ", " ++ P1 ++ ", " ++ P2 ++ ", " ++  Y1 ++ ", " ++ Y2 ++ ", " ++ Priv,
-                          file:write_file(key,String);
-                true -> {ok,String} = file:read_file(key),
-                        List = string:tokens(binary_to_list(String), ", "),
-                        ReadOefKey = "K:" ++ lists:nth(1,List) ++ "\nP:" ++ lists:nth(2,List) ++ "\nN:" ++ lists:nth(3,List) ++ "\nX:" ++ lists:nth(4,List) ++ "\nY:" ++ lists:nth(5,List) ++ "\nY:" ++ lists:nth(6,List),
-                        wxTextCtrl:changeValue(TPubKey, ReadOefKey),
-                        wxTextCtrl:changeValue(PrivKey,lists:nth(7,List))
-            end,
-            loop(State);
+        A = wxTextCtrl:getValue(PrivKey) ++ wxTextCtrl:getValue(TPubKey),
+        case length(A) == 0 of
+            false ->  {K,P,N,{P1,P2},{Y1,Y2}} = decodeOefKey(State),
+                      Priv = wxTextCtrl:getValue(PrivKey),
+                      io:format("P2: ~p" ,[P2]),
+                      String = integer_to_list(K) ++ ", " ++ integer_to_list(P) ++ ", " ++  integer_to_list(N) ++ ", " ++ integer_to_list(P1) ++ ", " ++ integer_to_list(P2) ++ ", " ++  integer_to_list(Y1) ++ ", " ++ integer_to_list(Y2) ++ ", " ++ Priv,
+                      file:write_file(key,String);
+            true -> {ok,String} = file:read_file(key),
+                    List = string:tokens(binary_to_list(String), ", "),
+
+                    wxTextCtrl:changeValue(TPubKey,lists:nth(1,List)),
+                    wxTextCtrl:changeValue(TPubP,lists:nth(2,List)),
+                    wxTextCtrl:changeValue(TPubN,lists:nth(3,List)),
+                    wxTextCtrl:changeValue(TPubP1,lists:nth(4,List)),
+                    wxTextCtrl:changeValue(TPubP2,lists:nth(5,List)),
+                    wxTextCtrl:changeValue(TPubY1,lists:nth(6,List)),
+                    wxTextCtrl:changeValue(TPubY2,lists:nth(7,List)),
+                    wxTextCtrl:changeValue(PrivKey,lists:nth(8,List))
+        end,
+        loop(State);
 
 
     {hash,left, Result} ->
-            wxTextCtrl:changeValue(TEHash, Result),
-            loop(State);
+        wxTextCtrl:changeValue(TEHash, Result),
+        loop(State);
 
     {message,A} ->
-            wxTextCtrl:changeValue(Tlog,(wxTextCtrl:getValue(Tlog) ++ "\n" ++ A)),
-            loop(State);
+        wxTextCtrl:changeValue(Tlog,(wxTextCtrl:getValue(Tlog) ++ "\n" ++ A)),
+        loop(State);
 
     {ausgabe,priv,A} ->
-            wxTextCtrl:changeValue(PrivKey,integer_to_list(A)),
-            loop(State);
+        wxTextCtrl:changeValue(PrivKey,integer_to_list(A)),
+        loop(State);
     {ausgabe,oef,{K,P,N,P1,P2,{Y1,Y2}}} ->
-            io:format(" hallo",[]),
-            wxTextCtrl:changeValue(TPubKey,integer_to_list(K)),
-           wxTextCtrl:changeValue(TPubP, integer_to_list(P)),
-          wxTextCtrl:changeValue(TPubN, integer_to_list(N)),
-         wxTextCtrl:changeValue(TPubP1, integer_to_list(P1)),
+        wxTextCtrl:changeValue(TPubKey,integer_to_list(K)),
+        wxTextCtrl:changeValue(TPubP, integer_to_list(P)),
+        wxTextCtrl:changeValue(TPubN, integer_to_list(N)),
+        wxTextCtrl:changeValue(TPubP1, integer_to_list(P1)),
         wxTextCtrl:changeValue(TPubP2, integer_to_list(P2)),
-       wxTextCtrl:changeValue(TPubY1, integer_to_list(Y1)),
-      wxTextCtrl:changeValue(TPubY2, integer_to_list(Y2)),
-            loop(State);
+        wxTextCtrl:changeValue(TPubY1, integer_to_list(Y1)),
+        wxTextCtrl:changeValue(TPubY2, integer_to_list(Y2)),
+        loop(State);
 
     {tik} ->
         case wxTextCtrl:getValue(Status) of
@@ -351,21 +365,19 @@ loop(State) ->
 
 %% Fügt eine neue Pid an und ruft den loop auf
 to_loop(State,Proc) ->
-  {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,Pid} = State,
-  loop({Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,lists:append(Pid, [Proc])}).
+  {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,Pid} = State,
+  loop({Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,lists:append(Pid, [Proc])}).
 
 decodeOefKey(State) ->
-    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,Pid} = State,
+    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,Pid} = State,
     Tokens = string:tokens(wxTextCtrl:getValue(TPubKey),"K: P: N: X: Y: , \n"),
-    io:format("~p", [Tokens]),
-    K = lists:nth(1,Tokens),
-    P = lists:nth(2,Tokens),
-    N = lists:nth(3,Tokens),
-    P1 = lists:nth(4,Tokens),
-    P2 = lists:nth(5,Tokens),
-    Y1 = lists:nth(6,Tokens),
-    Y2 = lists:nth(7,Tokens),
-    io:format("N: ~p",[N]),
+    K = list_to_integer(wxTextCtrl:getValue(TPubKey)),
+    P = list_to_integer(wxTextCtrl:getValue(TPubP)),
+    N = list_to_integer(wxTextCtrl:getValue(TPubN)),
+    P1 = list_to_integer(wxTextCtrl:getValue(TPubP1)),
+    P2 = list_to_integer(wxTextCtrl:getValue(TPubP2)),
+    Y1 = list_to_integer(wxTextCtrl:getValue(TPubY1)),
+    Y2 = list_to_integer(wxTextCtrl:getValue(TPubY2)),
     {K,P,N,{P1,P2},{Y1,Y2}}.
 
 
