@@ -502,17 +502,33 @@ getBlockLen(P,C,S) ->
     end.
 
 verschluesseln(M,B,K,P,N,P1,P2,Y1,Y2,A,Pid) ->
+    Proc = spawn(ecc,tik,[Pid,self()]),
+    link(Proc),
     Bllen = getBlockLen(P,1,[4294967295]),
     io:format("~p",[P]),
     case B > Bllen of
         false -> Pid ! {message, "[enc] Blocklänge ok. Starte Blockchiffre"},
                  Block = text_to_block(M,B,Pid),
                  {K,Res1,Res2} = genk(Y1,Y2,N,P,A),
-                 Pid ! {message, "[enc] K: " ++ integer_to_list(K) ++ "Punkt: " ++ integer_to_list(Res1) ++ ", " ++ integer_to_list(Res2)};
+                 Pid ! {message, "[enc] K: " ++ integer_to_list(K) ++ "Punkt: " ++ integer_to_list(Res1) ++ ", " ++ integer_to_list(Res2)},
+                 EncList = makechifBlock(Block,[],{C1,C2},{G1,G2},P,A),
+                 Pid ! {message, "[enc] Blöcke sind verschlüsselt"};
+                %% TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
 
         true ->  Pid ! {message, ("[enc] Blocklänge " ++ integer_to_list(B) ++ " ist zu groß")},
                  exit(error)
     end.
+%% Erzeugt aus einer Liste von Blöcken eine Liste mit verschlüsselten Tupeln
+makechifBlock(M,Result,K,{C1,C2},{G1,G2},P,A) when length(M) == 2 ->
+    M1 = hd(M),
+    M2 = hd(tl(M)),
+    Res = genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A),
+    lists:append(Result,Res);
+makechifBlock(M,Result,K,{C1,C2},{G1,G2},P,A) ->
+    M1 = hd(M),
+    M2 = hd(tl(M)),
+    Res = genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A),
+    makechifBlock(tl(tl(M)),lists:append(Result,Res),K,{C1,C2},{G1,G2},P,A).
 
 %% Algorithmus 3.3 Punkt 1) 4
 genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A) ->
