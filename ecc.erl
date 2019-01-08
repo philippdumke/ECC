@@ -501,7 +501,7 @@ getBlockLen(P,C,S) ->
         true -> getBlockLen(P,C+1,lists:append([4294967295],S))
     end.
 
-verschluesseln(M,B,K,P,N,P1,P2,Y1,Y2,A,Pid) ->
+verschluesseln(M,B,P,N,G1,G2,Y1,Y2,A,Pid) ->
     Proc = spawn(ecc,tik,[Pid,self()]),
     link(Proc),
     Bllen = getBlockLen(P,1,[4294967295]),
@@ -511,31 +511,53 @@ verschluesseln(M,B,K,P,N,P1,P2,Y1,Y2,A,Pid) ->
                  Block = text_to_block(M,B,Pid),
                  {K,Res1,Res2} = genk(Y1,Y2,N,P,A),
                  Pid ! {message, "[enc] K: " ++ integer_to_list(K) ++ "Punkt: " ++ integer_to_list(Res1) ++ ", " ++ integer_to_list(Res2)},
-                 EncList = makechifBlock(Block,[],{C1,C2},{G1,G2},P,A),
-                 Pid ! {message, "[enc] Blöcke sind verschlüsselt"};
-                %% TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
+                 EncList = makechifBlock(Block,[],K,{Res1,Res2},{G1,G2},P,A),
+                 Pid ! {message, "[enc] Blöcke sind verschlüsselt"},
+                 Cipher = list_to_cipher(EncList,[]),
+                 Pid ! {message,Cipher};
 
         true ->  Pid ! {message, ("[enc] Blocklänge " ++ integer_to_list(B) ++ " ist zu groß")},
                  exit(error)
     end.
+
+list_to_cipher(Message,Result) when length(Message) == 1 ->
+    Res = integer_to_cipher(hd(Message),[]),
+    lists:append(Result,Res);
+list_to_cipher(Message, Result) ->
+    Res = integer_to_cipher(hd(Message),[]),
+    list_to_cipher(tl(Message), lists:append(Result, lists:append("|",Res))).
+
+integer_to_cipher(Message,Result) ->
+    Z = Message div 100,
+    if Z == 0 ->
+                 Last = Message div 100,
+                 Encode = base64:encode_to_string([Last]),
+                 lists:append(Encode,Result);
+       true ->
+                Last = Message rem 100,
+                Encode = base64:encode_to_string([Last]),
+                integer_to_cipher(Message div 100, lists:append(Encode,Result))
+    end.
+
 %% Erzeugt aus einer Liste von Blöcken eine Liste mit verschlüsselten Tupeln
 makechifBlock(M,Result,K,{C1,C2},{G1,G2},P,A) when length(M) == 2 ->
     M1 = hd(M),
     M2 = hd(tl(M)),
-    Res = genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A),
-    lists:append(Result,Res);
+    {A1,B1,B2} = genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A),
+    lists:append(Result,lists:append([B1],[B2]));
 makechifBlock(M,Result,K,{C1,C2},{G1,G2},P,A) ->
     M1 = hd(M),
     M2 = hd(tl(M)),
-    Res = genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A),
-    makechifBlock(tl(tl(M)),lists:append(Result,Res),K,{C1,C2},{G1,G2},P,A).
+    {A1,B1,B2} = genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A),
+    Pid ! {a,A}, %  Muss in die GUI %TODO
+    makechifBlock(tl(tl(M)),lists:append(Result,lists:append([B1],[B2])),K,{C1,C2},{G1,G2},P,A).
 
 %% Algorithmus 3.3 Punkt 1) 4
 genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A) ->
-    A = fmult({G1,G2},P,A,K),
+    {A1,A2} = fmult({G1,G2},P,A,K),
     B1 = C1 * M1 rem P,
     B2 = C2 * M2 rem P,
-    {A,B1,B2}.%% Fertiges Chiffrat ?
+    {{A1,A2},B1,B2}.%% Fertiges Chiffrat ?
 
 %Algorithmus §.3 Punkt 1) 3
 genk(Y1,Y2,N,P,A) ->
@@ -554,4 +576,44 @@ make_less_than(A,Len) ->
        true -> make_less_than(A,Len)
     end.
 
+entschluesseln(Chif, BlockLen, P, A, {A1,A2},X,Pid) ->
+    List = cipher_to_list(Chif),
+    DechifList = list_dechif(List, {A1,A2},P,X,A,[]),
+    Result = block_to_text(DechifList,BlockLen,Pid),
+    Pid ! {message, Result}.
 
+
+list_dechif(List,{A1,A2},P,X,A,Result) when length(List) == 2 ->
+    {R1,R2} = makedechif({A1,A2},P,hd(List),hd(tl(List)),X,A),
+    lists:append(Result,lists:append(R1,R2));
+
+list_dechif(List,{A1,A2},P,X,A,Result)  ->
+    {R1,R2} = makedechif({A1,A2},P,hd(List),hd(tl(List)),X,A),
+    list_dechif(tl(tl(List)),{A1,A2},P,X,A,lists:append(Result,lists:append(R1,R2))).
+
+
+
+cipher_to_integer(List,Result) when length(List) == 1 ->
+    Res = cipher_to_string(hd(List),[]),
+    lists:append(Result, Res);
+
+cipher_to_integer(List, Result) ->
+    Res = cipher_to_string(hd(List), []),
+    cipher_to_integer(tl(List),lists:append(Result,Res)).
+
+cipher_to_string(List,Result) when length(List) == 4 ->
+    Result + list_to_integer(base64:decode_to_string(string:slice(List,0,4)));
+
+cipher_to_string(List, Result) ->
+    Chiph = Result + list_to_integer(base64:decode_to_string(string:slice(List, 0,4))) *100 ,
+    cipher_to_string(tl(tl(tl(tl(List)))),Chiph).
+
+cipher_to_list(Input) ->
+    Tokens = string:tokens(Input,"|"),
+    cipher_to_integer(Tokens,[]).
+
+makedechif({A1,A2},P,B1,B2,X,A) ->
+    {C1,C2} = fmult({A1,A2},P,A,X),
+    M1 = (B1 * multiplikativInverses(C1,P))rem P,
+    M2 = (B2 * multiplikativInverses(C2,P)) rem P,
+    {M1,M2}.

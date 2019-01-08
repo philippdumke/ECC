@@ -70,7 +70,7 @@ make_window() ->
     TBlockL = wxTextCtrl:new(Panel,1003,[{value,"100"},{style,?wxDEFAULT}]),
     STBlockL1 = wxStaticText:new(Panel,2007,"Blocklänge",[]),
     STBlockL2 = wxStaticText:new(Panel,2008," ",[]),
-    PrimLen = wxTextCtrl:new(Panel,1040,[{value,"200"},{style,?wxDEFAULT}]),
+    PrimLen = wxTextCtrl:new(Panel,1040,[{value,"100"},{style,?wxDEFAULT}]),
     STPrim1 = wxStaticText:new(Panel,2050,"Prim Len"),
 
     %% Priv Key
@@ -260,7 +260,7 @@ loop(State) ->
         Eingabe = wxTextCtrl:getValue(TEingabe),
         BlockLen = list_to_integer(wxTextCtrl:getValue(TBlockL)),
         {K,P,N,{P1,P2},{Y1,Y2}} = decodeOefKey(State),
-        Proc = spawn(ecc,verschluesseln,[Eingabe,BlockLen,K,P,N,P1,P2,Y1,Y2,-1,self()]),
+        Proc = spawn(ecc,verschluesseln,[Eingabe,BlockLen,P,N,P1,P2,Y1,Y2,-1,self()]),
         to_loop(State,Proc);
 
     {ausgabe,verschluesseln,Result} ->
@@ -270,6 +270,11 @@ loop(State) ->
 
     #wx{id = 102, event=#wxCommand{type = command_button_clicked}} ->
         wxTextCtrl:changeValue(Tlog,(wxTextCtrl:getValue(Tlog) ++ "\n \n" ++ "========>>>>> Entschlüsseln")),
+        {K,P,M,{P1,P2},{Y1,Y2}} = decodeOefKey(State),
+        BlockLen = list_to_integer(wxTextCtrl:getValue(BlockLen)),
+        X = list_to_integer(wxTextCtrl:getValue(PrivKey)),
+        Mess = wxTextCtrl:getValue(Eingabe),
+        Proc = spawn(ecc,entschluesseln,[Eingabe, BlockLen, P, -1,{A1,A2}, X, self()]).
         loop(State);
 
     #wx{id = 103, event=#wxCommand{type = command_button_clicked}} ->
