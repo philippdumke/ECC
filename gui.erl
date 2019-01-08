@@ -47,6 +47,12 @@ make_window() ->
     Y2Hd = wxStaticBoxSizer:new(?wxVERTICAL,Panel,[]),
     Y2Tl = wxStaticBoxSizer:new(?wxHORIZONTAL,Panel,[]),
 
+    A1Hd = wxStaticBoxSizer:new(?wxVERTICAL,Panel,[]),
+    A1Tl = wxStaticBoxSizer:new(?wxHORIZONTAL,Panel,[]),
+    A2Hd = wxStaticBoxSizer:new(?wxVERTICAL,Panel,[]),
+    A2Tl = wxStaticBoxSizer:new(?wxHORIZONTAL,Panel,[]),
+
+
     AusgHd = wxStaticBoxSizer:new(?wxVERTICAL,Panel,[]),
     AusgTl = wxStaticBoxSizer:new(?wxHORIZONTAL,Panel,[]),
 
@@ -90,6 +96,8 @@ make_window() ->
     TPubP2 = wxTextCtrl:new(Panel,1023,[{value,""},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
     TPubY1 = wxTextCtrl:new(Panel,1024,[{value,""},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
     TPubY2 = wxTextCtrl:new(Panel,1025,[{value,""},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
+    TPubA1 = wxTextCtrl:new(Panel,1026,[{value,""},{style, ?wxDEFAULT bor ?wxTE_MULTILINE}]),
+    TPubA2 = wxTextCtrl:new(Panel,1027,[{value,""},{style, ?wxDEFAULT bor ?wxTE_MULTILINE}]),
 
     STPP1 = wxStaticText:new(Panel,2030,"P"),
     STPP2 = wxStaticText:new(Panel,2031,""),
@@ -103,6 +111,11 @@ make_window() ->
     STPY12 = wxStaticText:new(Panel,2039,""),
     STPY21 = wxStaticText:new(Panel,2040,"Y2"),
     STPY22 = wxStaticText:new(Panel,2041,""),
+    STPA11 = wxStaticText:new(Panel,2042,"A1"),
+    STPA12 = wxStaticText:new(Panel,2043,""),
+    STPA21 = wxStaticText:new(Panel,2044,"A2"),
+    STPA22 = wxStaticText:new(Panel,2045,""),
+
 
 
     %% Ausgabe
@@ -141,7 +154,7 @@ make_window() ->
 
     %% Blocklänge
     wxSizer:add(BlockLHd,STBlockL1,[]),
-    wxSizer:add(BlockLHd,STBlockL2,[]),
+    %wxSizer:add(BlockLHd,STBlockL2,[]),
     wxSizer:add(BlockL,BlockLHd,[]),
     wxSizer:add(BlockL,TBlockL,[{flag,?wxEXPAND},{proportion,1}]),
     wxSizer:add(PrimHd, STPrim1,[{flag,?wxEXPAND}]),
@@ -157,41 +170,50 @@ make_window() ->
 
     %% Öff Key
     wxSizer:add(OefKeyHd,STPubKey1,[]),
-    wxSizer:add(OefKeyHd,STPubKey2,[]),
-    wxSizer:add(OefKeyHd,STPubKey3,[]),
+    %wxSizer:add(OefKeyHd,STPubKey2,[]),
+    %wxSizer:add(OefKeyHd,STPubKey3,[]),
     wxSizer:add(OefKeyTL,OefKeyHd,[]),
     wxSizer:add(OefKeyTL,TPubKey,[{flag,?wxEXPAND},{proportion,1}]),
 
     wxSizer:add(PHd,STPP1,[]),
-    wxSizer:add(PHd, STPP2,[]),
+    %wxSizer:add(PHd, STPP2,[]),
     wxSizer:add(PTl, PHd,[]),
     wxSizer:add(PTl, TPubP,[{flag,?wxEXPAND},{proportion,1}]),
 
     wxSizer:add(NHd,STPN,[]),
-    wxSizer:add(NHd, STPN1,[]),
+    %wxSizer:add(NHd, STPN1,[]),
     wxSizer:add(NTl, NHd,[]),
     wxSizer:add(NTl, TPubN,[{flag,?wxEXPAND},{proportion,1}]),
 
     wxSizer:add(P1Hd,STPPu1,[]),
-    wxSizer:add(P1Hd, STPPu2,[]),
+    %wxSizer:add(P1Hd, STPPu2,[]),
     wxSizer:add(P1Tl, P1Hd,[]),
     wxSizer:add(P1Tl, TPubP1,[{flag,?wxEXPAND},{proportion,1}]),
 
     wxSizer:add(P2Hd,STPPu3,[]),
-    wxSizer:add(P2Hd, STPPu4,[]),
+    %wxSizer:add(P2Hd, STPPu4,[]),
     wxSizer:add(P2Tl, P2Hd,[]),
     wxSizer:add(P2Tl, TPubP2,[{flag,?wxEXPAND},{proportion,1}]),
 
     wxSizer:add(Y1Hd, STPY11,[]),
-    wxSizer:add(Y1Hd, STPY12,[]),
+    %wxSizer:add(Y1Hd, STPY12,[]),
     wxSizer:add(Y1Tl, Y1Hd,[]),
     wxSizer:add(Y1Tl, TPubY1,[{flag,?wxEXPAND},{proportion,1}]),
 
     wxSizer:add(Y2Hd,STPY21,[]),
-    wxSizer:add(Y2Hd, STPY22,[]),
+    %wxSizer:add(Y2Hd, STPY22,[]),
     wxSizer:add(Y2Tl, Y2Hd,[]),
     wxSizer:add(Y2Tl, TPubY2,[{flag,?wxEXPAND},{proportion,1}]),
 
+    wxSizer:add(A1Hd, STPA11,[]),
+    %wxSizer:add(A1Hd, STPA12,[]),
+    wxSizer:add(A1Tl, A1Hd,[]),
+    wxSizer:add(A1Tl, TPubA1,[{flag,?wxEXPAND},{proportion,1}]),
+
+    wxSizer:add(A2Hd,STPA21,[]),
+    %wxSizer:add(A2Hd, STPA22,[]),
+    wxSizer:add(A2Tl, A2Hd,[]),
+    wxSizer:add(A2Tl, TPubA2,[{flag,?wxEXPAND},{proportion,1}]),
 
 
 
@@ -232,6 +254,9 @@ make_window() ->
     wxSizer:add(LeftSide,P2Tl,[{flag,?wxEXPAND}]),
     wxSizer:add(LeftSide,Y1Tl,[{flag,?wxEXPAND}]),
     wxSizer:add(LeftSide,Y2Tl,[{flag,?wxEXPAND}]),
+    wxSizer:add(LeftSide,A1Tl,[{flag,?wxEXPAND}]),
+    wxSizer:add(LeftSide,A2Tl,[{flag,?wxEXPAND}]),
+
     wxSizer:add(GuiSizer,LeftSide,[{flag,?wxEXPAND},{proportion,1}]),
     wxSizer:add(GuiSizer,RightSide,[{flag,?wxEXPAND},{proportion,1}]),
     wxSizer:add(MainSizer,GuiSizer,[{flag,?wxEXPAND}]),
@@ -243,11 +268,11 @@ make_window() ->
     wxFrame:connect(Frame, close_window),
     wxFrame:connect(Frame, command_button_clicked),
 
-    {Frame,TEingabe,TAusgabe,TBlockL,TLog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,[]}.
+    {Frame,TEingabe,TAusgabe,TBlockL,TLog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,TPubA1,TPubA2,[]}.
 
 
 loop(State) ->
-    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,Pid} = State,
+    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,TPubA1,TPubA2,Pid} = State,
     receive
         #wx{event=#wxClose{}} ->
             wxWindow:destroy(Frame),
@@ -271,10 +296,12 @@ loop(State) ->
     #wx{id = 102, event=#wxCommand{type = command_button_clicked}} ->
         wxTextCtrl:changeValue(Tlog,(wxTextCtrl:getValue(Tlog) ++ "\n \n" ++ "========>>>>> Entschlüsseln")),
         {K,P,M,{P1,P2},{Y1,Y2}} = decodeOefKey(State),
-        BlockLen = list_to_integer(wxTextCtrl:getValue(BlockLen)),
+        BlockLen = list_to_integer(wxTextCtrl:getValue(TBlockL)),
         X = list_to_integer(wxTextCtrl:getValue(PrivKey)),
-        Mess = wxTextCtrl:getValue(Eingabe),
-        Proc = spawn(ecc,entschluesseln,[Eingabe, BlockLen, P, -1,{A1,A2}, X, self()]).
+        A1 = list_to_integer(wxTextCtrl:getValue(TPubA1)),
+        A2 = list_to_integer(wxTextCtrl:getValue(TPubA2)),
+        Mess = wxTextCtrl:getValue(TEingabe),
+        Proc = spawn(ecc,entschluesseln,[Mess, BlockLen, P, -1,{A1,A2}, X, self()]),
         loop(State);
 
     #wx{id = 103, event=#wxCommand{type = command_button_clicked}} ->
@@ -311,7 +338,7 @@ loop(State) ->
             false ->  {K,P,N,{P1,P2},{Y1,Y2}} = decodeOefKey(State),
                       Priv = wxTextCtrl:getValue(PrivKey),
                       io:format("P2: ~p" ,[P2]),
-                      String = integer_to_list(K) ++ ", " ++ integer_to_list(P) ++ ", " ++  integer_to_list(N) ++ ", " ++ integer_to_list(P1) ++ ", " ++ integer_to_list(P2) ++ ", " ++  integer_to_list(Y1) ++ ", " ++ integer_to_list(Y2) ++ ", " ++ Priv,
+                      String = integer_to_list(K) ++ ", " ++ integer_to_list(P) ++ ", " ++  integer_to_list(N) ++ ", " ++ integer_to_list(P1) ++ ", " ++ integer_to_list(P2) ++ ", " ++  integer_to_list(Y1) ++ ", " ++ integer_to_list(Y2) ++ ", " ++ Priv,% ++ ", " ++ integer_to_list(A1) ++ ", " ++ integer_to_list(A2),
                       file:write_file(key,String);
             true -> {ok,String} = file:read_file(key),
                     List = string:tokens(binary_to_list(String), ", "),
@@ -324,6 +351,8 @@ loop(State) ->
                     wxTextCtrl:changeValue(TPubY1,lists:nth(6,List)),
                     wxTextCtrl:changeValue(TPubY2,lists:nth(7,List)),
                     wxTextCtrl:changeValue(PrivKey,lists:nth(8,List))
+                    %wxTextCtrl:changeValue(TPubA1,lists:nth(9,List)),
+                    %wxTextCtrl:changeValue(TPubA2, lists:nth(10,List))
         end,
         loop(State);
 
@@ -348,6 +377,10 @@ loop(State) ->
         wxTextCtrl:changeValue(TPubY1, integer_to_list(Y1)),
         wxTextCtrl:changeValue(TPubY2, integer_to_list(Y2)),
         loop(State);
+    {ausgabe,a,{A1,A2}} ->
+        wxTextCtrl:changeValue(TPubA1,integer_to_list(A1)),
+        wxTextCtrl:changeValue(TPubA2,integer_to_list(A2)),
+        loop(State);
 
     {tik} ->
         case wxTextCtrl:getValue(Status) of
@@ -370,11 +403,11 @@ loop(State) ->
 
 %% Fügt eine neue Pid an und ruft den loop auf
 to_loop(State,Proc) ->
-  {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,Pid} = State,
-  loop({Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,lists:append(Pid, [Proc])}).
+  {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,TPubA1,TPubA2,Pid} = State,
+  loop({Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,TPubA1,TPubA2,lists:append(Pid, [Proc])}).
 
 decodeOefKey(State) ->
-    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,Pid} = State,
+    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,TPubA1,TPubA2,Pid} = State,
     Tokens = string:tokens(wxTextCtrl:getValue(TPubKey),"K: P: N: X: Y: , \n"),
     K = list_to_integer(wxTextCtrl:getValue(TPubKey)),
     P = list_to_integer(wxTextCtrl:getValue(TPubP)),
@@ -383,6 +416,8 @@ decodeOefKey(State) ->
     P2 = list_to_integer(wxTextCtrl:getValue(TPubP2)),
     Y1 = list_to_integer(wxTextCtrl:getValue(TPubY1)),
     Y2 = list_to_integer(wxTextCtrl:getValue(TPubY2)),
+    %A1 = list_to_integer(wxTextCtrl:getValue(TPubA1)),
+    %A2 = list_to_integer(wxTextCtrl:getValue(TPubA2)),
     {K,P,N,{P1,P2},{Y1,Y2}}.
 
 

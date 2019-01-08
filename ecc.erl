@@ -448,13 +448,9 @@ test(Pid) ->
 
 tik(Pid, Parent) ->
     Proc = process_info(Parent),
-    case lists:nth(3,Proc) of
-        {status,_} ->
-                timer:sleep(200),
-                Pid ! {tik},
-                tik(Pid,Parent);
-        _ -> io:format("exit",[]), exit(self(),exited)
-    end.
+    timer:sleep(200),
+    Pid ! {tik},
+    tik(Pid,Parent).
 
 hash(Input, Pid, Token) ->
     Pid ! {hash, Token, lists:flatten([integer_to_list(X,16) || <<X>> <= crypto:hash(md5,unicode:characters_to_nfc_binary(Input))])}.
@@ -511,7 +507,7 @@ verschluesseln(M,B,P,N,G1,G2,Y1,Y2,A,Pid) ->
                  Block = text_to_block(M,B,Pid),
                  {K,Res1,Res2} = genk(Y1,Y2,N,P,A),
                  Pid ! {message, "[enc] K: " ++ integer_to_list(K) ++ "Punkt: " ++ integer_to_list(Res1) ++ ", " ++ integer_to_list(Res2)},
-                 EncList = makechifBlock(Block,[],K,{Res1,Res2},{G1,G2},P,A),
+                 EncList = makechifBlock(Block,[],K,{Res1,Res2},{G1,G2},P,A,Pid),
                  Pid ! {message, "[enc] Blöcke sind verschlüsselt"},
                  Cipher = list_to_cipher(EncList,[]),
                  Pid ! {message,Cipher};
@@ -540,17 +536,18 @@ integer_to_cipher(Message,Result) ->
     end.
 
 %% Erzeugt aus einer Liste von Blöcken eine Liste mit verschlüsselten Tupeln
-makechifBlock(M,Result,K,{C1,C2},{G1,G2},P,A) when length(M) == 2 ->
+makechifBlock(M,Result,K,{C1,C2},{G1,G2},P,A, Pid) when length(M) == 2 ->
     M1 = hd(M),
     M2 = hd(tl(M)),
     {A1,B1,B2} = genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A),
+    Pid ! {ausgabe, a, A1},
     lists:append(Result,lists:append([B1],[B2]));
-makechifBlock(M,Result,K,{C1,C2},{G1,G2},P,A) ->
+makechifBlock(M,Result,K,{C1,C2},{G1,G2},P,A,Pid) ->
     M1 = hd(M),
     M2 = hd(tl(M)),
     {A1,B1,B2} = genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A),
-    Pid ! {a,A}, %  Muss in die GUI %TODO
-    makechifBlock(tl(tl(M)),lists:append(Result,lists:append([B1],[B2])),K,{C1,C2},{G1,G2},P,A).
+    Pid ! {ausgabe, a, A1}, %  Muss in die GUI %TODO
+    makechifBlock(tl(tl(M)),lists:append(Result,lists:append([B1],[B2])),K,{C1,C2},{G1,G2},P,A,Pid).
 
 %% Algorithmus 3.3 Punkt 1) 4
 genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A) ->
