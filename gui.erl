@@ -73,7 +73,7 @@ make_window() ->
     TEHash = wxTextCtrl:new(Panel,1002,[{value,"Hier könnte Ihre Werbung stehen"},{style,?wxDEFAULT bor ?wxTE_MULTILINE bor ?wxTE_READONLY}]),
 
     %% Blocklänge
-    TBlockL = wxTextCtrl:new(Panel,1003,[{value,"100"},{style,?wxDEFAULT}]),
+    TBlockL = wxTextCtrl:new(Panel,1003,[{value,"10"},{style,?wxDEFAULT}]),
     STBlockL1 = wxStaticText:new(Panel,2007,"Blocklänge",[]),
     STBlockL2 = wxStaticText:new(Panel,2008," ",[]),
     PrimLen = wxTextCtrl:new(Panel,1040,[{value,"100"},{style,?wxDEFAULT}]),
@@ -363,6 +363,9 @@ loop(State) ->
 
     {message,A} ->
         wxTextCtrl:changeValue(Tlog,(wxTextCtrl:getValue(Tlog) ++ "\n" ++ A)),
+        loop(State);
+    {ausgabe, A} ->
+        wxTextCtrl:changeValue(TAusgabe,A),
         loop(State);
 
     {ausgabe,priv,A} ->

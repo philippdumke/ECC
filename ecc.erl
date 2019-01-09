@@ -509,19 +509,26 @@ verschluesseln(M,B,P,N,G1,G2,Y1,Y2,A,Pid) ->
                  Pid ! {message, "[enc] K: " ++ integer_to_list(K) ++ "Punkt: " ++ integer_to_list(Res1) ++ ", " ++ integer_to_list(Res2)},
                  EncList = makechifBlock(Block,[],K,{Res1,Res2},{G1,G2},P,A,Pid),
                  Pid ! {message, "[enc] Blöcke sind verschlüsselt"},
+                 io:format("Enc:List ~p ~n",[EncList]),
                  Cipher = list_to_cipher(EncList,[]),
-                 Pid ! {message,Cipher};
+                 Pid ! {ausgabe,Cipher};
 
         true ->  Pid ! {message, ("[enc] Blocklänge " ++ integer_to_list(B) ++ " ist zu groß")},
                  exit(error)
-    end.
+    end,
+    exit(Proc,done),
+    Pid ! {message, "Verschlüsseln abgeschlossen"},
+    Pid ! {tik,ok}.
 
 list_to_cipher(Message,Result) when length(Message) == 1 ->
-    Res = integer_to_cipher(hd(Message),[]),
-    lists:append(Result,Res);
+    Res = new_integer_to_cipher(hd(Message)),
+    lists:append(Result,lists:append("|",Res));
 list_to_cipher(Message, Result) ->
-    Res = integer_to_cipher(hd(Message),[]),
+    Res = new_integer_to_cipher(hd(Message)),
     list_to_cipher(tl(Message), lists:append(Result, lists:append("|",Res))).
+
+new_integer_to_cipher(Message) ->
+    base64:encode_to_string(integer_to_list(Message)).
 
 integer_to_cipher(Message,Result) ->
     Z = Message div 100,
@@ -575,34 +582,47 @@ make_less_than(A,Len) ->
 
 entschluesseln(Chif, BlockLen, P, A, {A1,A2},X,Pid) ->
     List = cipher_to_list(Chif),
+    io:format("Länge der Liste: ~p~n",[List]),
     DechifList = list_dechif(List, {A1,A2},P,X,A,[]),
     Result = block_to_text(DechifList,BlockLen,Pid),
     Pid ! {message, Result}.
 
 
+
 list_dechif(List,{A1,A2},P,X,A,Result) when length(List) == 2 ->
     {R1,R2} = makedechif({A1,A2},P,hd(List),hd(tl(List)),X,A),
-    lists:append(Result,lists:append(R1,R2));
+    lists:append(Result,lists:append([R1],[R2]));
 
 list_dechif(List,{A1,A2},P,X,A,Result)  ->
     {R1,R2} = makedechif({A1,A2},P,hd(List),hd(tl(List)),X,A),
-    list_dechif(tl(tl(List)),{A1,A2},P,X,A,lists:append(Result,lists:append(R1,R2))).
+    list_dechif(tl(tl(List)),{A1,A2},P,X,A,lists:append(Result,lists:append([R1],[R2]))).
 
 
 
 cipher_to_integer(List,Result) when length(List) == 1 ->
-    Res = cipher_to_string(hd(List),[]),
-    lists:append(Result, Res);
+    %io:format("List: ~p~n",[hd(List)]),
+    Res = list_to_integer(base64:decode_to_string(hd(List))),
+    %io:format("Res: ~p~n",[Res]),
+    lists:append(Result, [Res]);
 
 cipher_to_integer(List, Result) ->
-    Res = cipher_to_string(hd(List), []),
-    cipher_to_integer(tl(List),lists:append(Result,Res)).
+    Res = list_to_integer(base64:decode_to_string(hd(List))),
+    %io:format("res: ~p~n",([Res])),
+    %io:format("Result : ~p~n",[Result]),
+    A = lists:append(Result,[Res]),
+    %io:format("Liste: ~p~n",[A]),
+    cipher_to_integer(tl(List),lists:append(Result,[Res])).
 
 cipher_to_string(List,Result) when length(List) == 4 ->
-    Result + list_to_integer(base64:decode_to_string(string:slice(List,0,4)));
+    A = Result + hd(base64:decode_to_string(string:slice(List,0,4))),
+    %io:format("A: ~p~n",[A]),
+    A;
 
 cipher_to_string(List, Result) ->
-    Chiph = Result + list_to_integer(base64:decode_to_string(string:slice(List, 0,4))) *100 ,
+    A = string:slice(List,0,4),
+    B = base64:decode_to_string(A),
+    C = hd(B) *100,
+    Chiph = Result + hd(base64:decode_to_string(string:slice(List, 0,4))) *100 ,
     cipher_to_string(tl(tl(tl(tl(List)))),Chiph).
 
 cipher_to_list(Input) ->
