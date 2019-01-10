@@ -26,8 +26,6 @@ fastExponentiation(A,B) when B rem  2 == 0 -> pow(pow(A,B div 2),2).
 
 
 ublock(Input, _, Result) when length(Input) == 0 -> Result;
-%ublock(Input,K,Result) when length(Input) rem  (2 * K) /= 0 ->
-%    ublock(lists:append(Input,[32]),K,Result);
 ublock(Input, K, Result) when length(Input) > K ->
     {NewInput,NewResult} = u_to_block(Input,K-1,0),
     ublock(NewInput, K, lists:append(Result, [NewResult]));
@@ -79,9 +77,6 @@ add_Block(K,Result) ->
 %% Strings werden ergänzt, sodass sie immer eine grade Anzahl an Blöcken ergeben.
 %% Sendet Log Nachrichten an die GUI
 text_to_block(Message, Blocklaenge, Pid) ->
-    %Len = length(Message),
-    %Pid !{message, string:concat("Länge der Eingabe: ", Len)},
-
     Len = length(Message) rem (Blocklaenge * 2),
     if Len == 0 ->  Result = ublock(Message,Blocklaenge,[]);
        Len > Blocklaenge -> Result = ublock(Message,Blocklaenge,[]);
@@ -106,56 +101,6 @@ compute_Hash(Input, Pid) ->
     Pid ! {ausgabe, hash, Result},
     exit(Tik, done).
 
-
-%% Addiert zwei Komplexe Zahlen
-add(A,B) ->
-    {A1,A2} = A,
-    {B1,B2} = B,
-    Result = {A1 + B1, A2 + B2},
-    Result.
-%% Subtrahiert zwei Komplexe Zahlen
-sub(A,B) ->
-    {A1,A2} = A,
-    {B1,B2} = B,
-    Result = {A1 - B1, A2 - B2},
-    Result.
-%% Multipliziert zwei Komplexe Zahlen
-mul(A,B) ->
-    {A1,A2} = A,
-    {B1,B2} = B,
-    Real = (A1 * B1) - (A2 * B2),
-    Img = (A1 * B2) + (B1 * A2),
-    {Real , Img}.
-
-
-%% Generiert eine sichere Primzahl
-make_prime(K) when K > 0 ->
-    new_seed(),
-    N = make(K),
-    if N > 3 ->
-           io:format("Generiere eine ~w stellige Primzahl ", [K]),
-           MaxTries = N - 3,
-           P1 = make_prime(MaxTries, N + rand:uniform(9), K),
-           io:format("~n", []),
-           P1;
-       true -> make_prime(K)
-    end.
-
-make_prime(0,_,Len) -> exit(max_tries_exceeded);
-make_prime(K,P,Len) ->
-    io:format(".",[]),
-    %case miller_rabin:is_prime(P) of
-    case ez_crypt_miller_rabin:is_probably_prime(P) of
-        true -> P;
-        false -> make_prime(K-1,P+1,Len)
-    end.
-
-is_mod8(P) ->
-    if (P rem 8) == 5 ->
-           true;
-    true  ->
-           false
-    end.
 
 make(N) -> new_seed(), make(N,0).
 make(0,D) -> D;
@@ -207,7 +152,7 @@ calc_key(Len, A,Pid) ->
     Tik = spawn(ecc,tik, [Pid, self()]),
     link(Tik),
     Proc = prime:spawnPrimes(self(),4,Len),
-    Point = new_make_key(Len, A,Pid),
+    Point = new_make_key(Len, A,1,Pid),
     kill(Proc),
     exit(Tik,done),
     Pid ! {tik,ok},
@@ -219,12 +164,12 @@ kill(Proc) ->
     exit(hd(Proc),done),
     kill(tl(Proc)).
 
-new_make_key(Len,A,Pid) ->
+new_make_key(Len,A,Anz,Pid) ->
     new_seed(),
     receive
         {prime, P} ->
             case P rem 8 == 5 of
-                false -> new_make_key(Len,A,Pid);
+                false -> new_make_key(Len,A,Anz+1,Pid);
                 true ->
                     X = get_valid_euklid(P),
                     {X1,X2} = euklid({X,1},{P,0}),
@@ -232,8 +177,9 @@ new_make_key(Len,A,Pid) ->
                     N = calc_n(abs(X1),abs(X2), P),
                     io:format("N: ~p~n",[N]),
                     case is_prime(N div 8) of
-                        false -> new_make_key(Len,A,Pid); %Abbruch neu anfangen
+                        false -> new_make_key(Len,A,Anz+1,Pid); %Abbruch neu anfangen
                         true ->
+                            Pid ! {message, "Anzahl erzeugter Primzahlen: " ++ integer_to_list(Anz)},
                             Point = calc_point(Len, P, A),
                             {P1,P2,P} = Point,
                             make_key_extension(N,Point,A,Pid),
@@ -255,28 +201,6 @@ make_less_os(OS,Len) ->
     N = make(Len),
     if N =< OS -> N;
         true -> make_less_os(OS,Len)
-    end.
-
-make_key(Len,A) ->
-    new_seed(),
-    % Erzeugen einer zufälligen Zahl kleiner als P
-    W2 = make(Len -1),
-    % Erzeugen einer Primzahl
-    P = make_prime(Len),
-    case euler_kriterium(W2,P) of
-        false ->
-            W = fpow(W2, (P - 1) div 4,P),
-            {X,Y} = euklid({W,1},{P,0}),
-            N = calc_n(abs(X),abs(Y),P), %Betrag
-            case is_prime(N div 8) of
-                false -> make_key(Len,A); %Abbruch neu anfangen
-                true ->
-                    Point = calc_point(Len, P, A)
-
-            end;
-
-            %% Hier gehts dann weiter
-        true -> make_key(Len,A)
     end.
 
 calc_point(Len, P,A) ->
@@ -437,23 +361,14 @@ is_less(A,B) ->
        true -> false
     end.
 
-test(Pid) ->
-    Message = "Hallo",
-    Tik = spawn(ecc, tik, [Pid, self()]),
-    Pid ! {message, Message},
-    io:format("~p",[Message]),
-    timer:sleep(10000),
-    exit(Tik,done),
-    Pid ! {tik,ok}.
-
 tik(Pid, Parent) ->
     Proc = process_info(Parent),
     timer:sleep(200),
     Pid ! {tik},
     tik(Pid,Parent).
 
-hash(Input, Pid, Token) ->
-    Pid ! {hash, Token, lists:flatten([integer_to_list(X,16) || <<X>> <= crypto:hash(md5,unicode:characters_to_nfc_binary(Input))])}.
+hash(Input) ->
+    lists:flatten([integer_to_list(X,16) || <<X>> <= crypto:hash(md5,unicode:characters_to_nfc_binary(Input))]).
 
 split(Input,Result) when length(Input) == 1 -> lists:append([hd(Input)],Result).
 
@@ -502,11 +417,13 @@ verschluesseln(M,B,P,N,G1,G2,Y1,Y2,A,Pid) ->
     link(Proc),
     Bllen = getBlockLen(P,1,[4294967295]),
     io:format("~p",[P]),
+    Hash = hash(string:trim(M)),
+    Pid ! {message, "Hash: " ++ Hash},
     case B > Bllen of
         false -> Pid ! {message, "[enc] Blocklänge ok. Starte Blockchiffre"},
                  Block = text_to_block(M,B,Pid),
                  {K,Res1,Res2} = genk(Y1,Y2,N,P,A),
-                 Pid ! {message, "[enc] K: " ++ integer_to_list(K) ++ "Punkt: " ++ integer_to_list(Res1) ++ ", " ++ integer_to_list(Res2)},
+                 Pid ! {message, "[enc] K: " ++ integer_to_list(K) ++ "\nPunkt: " ++ integer_to_list(Res1) ++ ", \n" ++ integer_to_list(Res2)},
                  EncList = makechifBlock(Block,[],K,{Res1,Res2},{G1,G2},P,A,Pid),
                  Pid ! {message, "[enc] Blöcke sind verschlüsselt"},
                  io:format("Enc:List ~p ~n",[EncList]),
@@ -546,22 +463,27 @@ integer_to_cipher(Message,Result) ->
 makechifBlock(M,Result,K,{C1,C2},{G1,G2},P,A, Pid) when length(M) == 2 ->
     M1 = hd(M),
     M2 = hd(tl(M)),
-    {A1,B1,B2} = genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A),
+    {A1,B1,B2} = genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A,Pid),
     Pid ! {ausgabe, a, A1},
     lists:append(Result,lists:append([B1],[B2]));
 makechifBlock(M,Result,K,{C1,C2},{G1,G2},P,A,Pid) ->
     M1 = hd(M),
     M2 = hd(tl(M)),
-    {A1,B1,B2} = genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A),
-    Pid ! {ausgabe, a, A1}, %  Muss in die GUI %TODO
+    {A1,B1,B2} = genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A,Pid),
+    Pid ! {ausgabe, a, A1},
     makechifBlock(tl(tl(M)),lists:append(Result,lists:append([B1],[B2])),K,{C1,C2},{G1,G2},P,A,Pid).
 
 %% Algorithmus 3.3 Punkt 1) 4
-genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A) ->
+genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A,Pid) ->
     {A1,A2} = fmult({G1,G2},P,A,K),
     B1 = C1 * M1 rem P,
+    Pid ! {message, "----------"},
+    Pid ! {message, "Verschlüssele: " ++ integer_to_list(C1) ++ " --> " ++ integer_to_list(B1)},
+    Pid ! {message, " +++++++++ "},
     B2 = C2 * M2 rem P,
-    {{A1,A2},B1,B2}.%% Fertiges Chiffrat ?
+    Pid ! {message, "Verschlüssele: " ++ integer_to_list(C2) ++ " --> " ++ integer_to_list(B2)},
+    Pid ! {message, "----------"},
+    {{A1,A2},B1,B2}.
 
 %Algorithmus §.3 Punkt 1) 3
 genk(Y1,Y2,N,P,A) ->
@@ -581,21 +503,26 @@ make_less_than(A,Len) ->
     end.
 
 entschluesseln(Chif, BlockLen, P, A, {A1,A2},X,Pid) ->
+    Proc = spawn(ecc,tik,[Pid, self()]),
+    link(Proc),
     List = cipher_to_list(Chif),
-    io:format("Länge der Liste: ~p~n",[List]),
-    DechifList = list_dechif(List, {A1,A2},P,X,A,[]),
+    DechifList = list_dechif(List, {A1,A2},P,X,A,[],Pid),
     Result = block_to_text(DechifList,BlockLen,Pid),
-    Pid ! {message, Result}.
+    Pid ! {ausgabe, Result},
+    Hash = hash(string:trim(Result)),
+    Pid ! {message, "Hash: " ++ Hash},
+    exit(Proc,done),
+    Pid ! {tik,ok}.
 
 
 
-list_dechif(List,{A1,A2},P,X,A,Result) when length(List) == 2 ->
-    {R1,R2} = makedechif({A1,A2},P,hd(List),hd(tl(List)),X,A),
+list_dechif(List,{A1,A2},P,X,A,Result,Pid) when length(List) == 2 ->
+    {R1,R2} = makedechif({A1,A2},P,hd(List),hd(tl(List)),X,A,Pid),
     lists:append(Result,lists:append([R1],[R2]));
 
-list_dechif(List,{A1,A2},P,X,A,Result)  ->
-    {R1,R2} = makedechif({A1,A2},P,hd(List),hd(tl(List)),X,A),
-    list_dechif(tl(tl(List)),{A1,A2},P,X,A,lists:append(Result,lists:append([R1],[R2]))).
+list_dechif(List,{A1,A2},P,X,A,Result,Pid)  ->
+    {R1,R2} = makedechif({A1,A2},P,hd(List),hd(tl(List)),X,A,Pid),
+    list_dechif(tl(tl(List)),{A1,A2},P,X,A,lists:append(Result,lists:append([R1],[R2])),Pid).
 
 
 
@@ -629,8 +556,13 @@ cipher_to_list(Input) ->
     Tokens = string:tokens(Input,"|"),
     cipher_to_integer(Tokens,[]).
 
-makedechif({A1,A2},P,B1,B2,X,A) ->
+makedechif({A1,A2},P,B1,B2,X,A,Pid) ->
     {C1,C2} = fmult({A1,A2},P,A,X),
     M1 = (B1 * multiplikativInverses(C1,P))rem P,
+    Pid ! {message, "------------"},
+    Pid ! {message, "decrypt: " ++ integer_to_list(B1) ++ " --> " ++ integer_to_list(M1)},
     M2 = (B2 * multiplikativInverses(C2,P)) rem P,
+    Pid ! {message, " +++++++++++ "},
+    Pid ! {message, "decrypt: " ++ integer_to_list(B2) ++ " --> " ++ integer_to_list(M2)},
+    Pid ! {message, "------------"},
     {M1,M2}.
