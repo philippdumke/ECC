@@ -194,7 +194,7 @@ make_key_extension(N,Punkt,A,Pid) ->
     X = make_less_os(OS,length(integer_to_list(OS))),
     Y = fmult({P1,P2},P,A,X),
     Pid ! {ausgabe, priv, X},
-    Pid ! {ausgabe, oef, {1,P,N,P1,P2,Y}}.
+    Pid ! {ausgabe, oef, {-1,P,N,P1,P2,Y}}.
 
 
 make_less_os(OS,Len) ->
@@ -368,7 +368,7 @@ tik(Pid, Parent) ->
     tik(Pid,Parent).
 
 hash(Input) ->
-    lists:flatten([integer_to_list(X,16) || <<X>> <= crypto:hash(md5,unicode:characters_to_nfc_binary(Input))]).
+    lists:flatten([integer_to_list(X,16) || <<X>> <= crypto:hash(sha,unicode:characters_to_nfc_binary(Input))]).
 
 split(Input,Result) when length(Input) == 1 -> lists:append([hd(Input)],Result).
 
@@ -566,3 +566,34 @@ makedechif({A1,A2},P,B1,B2,X,A,Pid) ->
     Pid ! {message, "decrypt: " ++ integer_to_list(B2) ++ " --> " ++ integer_to_list(M2)},
     Pid ! {message, "------------"},
     {M1,M2}.
+
+make_sig(Ordnung,{G1,G2},P,A, Nachricht,Priv,Pid) ->
+    K = make_less_than(Ordnung-1),
+    {U,_} = fmult({G1,G2},P,A,K),
+    R = U rem Ordnung,
+    case R of
+        0 -> make_sig(Ordnung,{G1,G2},P,A, Nachricht,Priv,Pid);
+        _ ->
+            Hash = hash(string:trim(Nachricht)),
+            ListofHash = ublock(Hash,50,[]),
+            S = ((hd(ListofHash) + Priv * R) * multiplikativInverses(K,Ordnung)) rem Ordnung,
+           case S of
+              0 -> make_sig(Ordnung,{G1,G2},P,A,Nachricht,Priv,Pid);
+              _ -> Pid ! {sig,{R,S}}
+            end
+    end.
+
+check_sig(Ordnung,{G1,G2},P,A,Nachricht,{Y1,Y2},S,R, Pid) ->
+    ListofHash = ublock(hash(string:trim(Nachricht)),50,[]),
+    W = multiplikativInverses(S,Ordnung),
+    U1 = (W * hd(ListofHash)) rem Ordnung,
+    U2 = (R * W) rem Ordnung,
+    {U3,_} = tangente(fmult({G1,G2}, P,A,U1),fmult({Y1,Y2},P,A,U2),P),
+    io:format("U3: ~p~n ",[U3]),
+    U4 = U3 rem Ordnung,
+   case R rem Ordnung of
+      U4 -> Pid ! {message, "Signatur ok."};
+      _ -> Pid ! {message, "Signatur nicht ok."}
+    end.
+
+

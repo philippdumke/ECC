@@ -26,6 +26,8 @@ make_window() ->
 
     Hash = wxStaticBoxSizer:new(?wxHORIZONTAL,Panel,[]),
     HashHd = wxStaticBoxSizer:new(?wxVERTICAL,Panel,[]),
+    Hash2Hd = wxStaticBoxSizer:new(?wxVERTICAL,Panel,[]),
+    Hash2Tl = wxStaticBoxSizer:new(?wxHORIZONTAL,Panel,[]),
     Buttons = wxStaticBoxSizer:new(?wxHORIZONTAL,Panel,[]),
     Buttons2 = wxStaticBoxSizer:new(?wxHORIZONTAL,Panel,[]),
 
@@ -68,12 +70,15 @@ make_window() ->
 
     TEingabe = wxTextCtrl:new(Panel, 1001,[{value, "lorem ipsum dolor"},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
     %% Hash
-    STHash1 = wxStaticText:new(Panel,2005, "Hash     ",[]),
+    STHash1 = wxStaticText:new(Panel,2005, "S",[]),
     STHash2 = wxStaticText:new(Panel, 2006, " ",[]),
     TEHash = wxTextCtrl:new(Panel,1002,[{value,"Hier könnte Ihre Werbung stehen"},{style,?wxDEFAULT bor ?wxTE_MULTILINE bor ?wxTE_READONLY}]),
+    TEHash2 = wxTextCtrl:new(Panel,1090,[{value,""},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
+    STHash3 = wxStaticText:new(Panel,2090,"R"),
+
 
     %% Blocklänge
-    TBlockL = wxTextCtrl:new(Panel,1003,[{value,"10"},{style,?wxDEFAULT}]),
+    TBlockL = wxTextCtrl:new(Panel,1003,[{value,"100"},{style,?wxDEFAULT}]),
     STBlockL1 = wxStaticText:new(Panel,2007,"Blocklänge",[]),
     STBlockL2 = wxStaticText:new(Panel,2008," ",[]),
     PrimLen = wxTextCtrl:new(Panel,1040,[{value,"100"},{style,?wxDEFAULT}]),
@@ -151,6 +156,10 @@ make_window() ->
     wxSizer:add(HashHd,STHash2,[]),
     wxSizer:add(Hash, HashHd,[]),
     wxSizer:add(Hash,TEHash,[{flag,?wxEXPAND},{proportion,1}]),
+    wxSizer:add(Hash2Hd,STHash3,[]),
+    wxSizer:add(Hash2Tl,Hash2Hd,[]),
+    wxSizer:add(Hash2Tl,TEHash2,[{flag,?wxEXPAND},{proportion,1}]),
+    wxSizer:add(Hash, Hash2Tl,[{flag,?wxEXPAND},{proportion,1}]),
 
     %% Blocklänge
     wxSizer:add(BlockLHd,STBlockL1,[]),
@@ -268,11 +277,11 @@ make_window() ->
     wxFrame:connect(Frame, close_window),
     wxFrame:connect(Frame, command_button_clicked),
 
-    {Frame,TEingabe,TAusgabe,TBlockL,TLog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,TPubA1,TPubA2,[]}.
+    {Frame,TEingabe,TAusgabe,TBlockL,TLog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,TPubA1,TPubA2,TEHash2,[]}.
 
 
 loop(State) ->
-    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,TPubA1,TPubA2,Pid} = State,
+    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,TPubA1,TPubA2,TEHash2,Pid} = State,
     receive
         #wx{event=#wxClose{}} ->
             wxWindow:destroy(Frame),
@@ -285,7 +294,7 @@ loop(State) ->
         Eingabe = wxTextCtrl:getValue(TEingabe),
         BlockLen = list_to_integer(wxTextCtrl:getValue(TBlockL)),
         {K,P,N,{P1,P2},{Y1,Y2}} = decodeOefKey(State),
-        Proc = spawn(ecc,verschluesseln,[Eingabe,BlockLen,P,N,P1,P2,Y1,Y2,-1,self()]),
+        Proc = spawn(ecc,verschluesseln,[Eingabe,BlockLen,P,N,P1,P2,Y1,Y2,K,self()]),
         to_loop(State,Proc);
 
     {ausgabe,verschluesseln,Result} ->
@@ -306,7 +315,14 @@ loop(State) ->
 
     #wx{id = 103, event=#wxCommand{type = command_button_clicked}} ->
         wxTextCtrl:changeValue(Tlog,wxTextCtrl:getValue(Tlog) ++ "\n \n" ++ "========>>>>> Test"),
-        loop(State);
+
+         Message = wxTextCtrl:getValue(TAusgabe),
+        {K,P,N,{P1,P2},{Y1,Y2}} = decodeOefKey(State),
+        R = list_to_integer(wxTextCtrl:getValue(TEHash2)),
+        S = list_to_integer(wxTextCtrl:getValue(TEHash)),
+        Proc = spawn(ecc, check_sig,[N,{P1,P2},P,K,Message,{Y1,Y2},R,S,self()]),
+        to_loop(State, Proc);
+
 
     #wx{id = 104, event=#wxCommand{type = command_button_clicked}} ->
         wxTextCtrl:changeValue(Tlog,wxTextCtrl:getValue(Tlog) ++ "\n \n" ++ "========>>>>> Generiere Schlüssel"),
@@ -329,7 +345,9 @@ loop(State) ->
     %% Hash berechnen
     #wx{id = 107, event=#wxCommand{type = command_button_clicked}} ->
         Message = wxTextCtrl:getValue(TEingabe),
-        Proc = spawn(ecc, hash,[Message, self(), left]),
+        {K,P,N,{P1,P2},{Y1,Y2}} = decodeOefKey(State),
+        X = list_to_integer(wxTextCtrl:getValue(PrivKey)),
+        Proc = spawn(ecc, make_sig,[N,{P1,P2},P,K,Message,X,self()]),
         to_loop(State, Proc);
 
     #wx{id = 108, event=#wxCommand{type = command_button_clicked}} ->
@@ -356,6 +374,10 @@ loop(State) ->
         end,
         loop(State);
 
+    {sig,{R,S}} ->
+            wxTextCtrl:changeValue(TEHash,integer_to_list(R)),
+            wxTextCtrl:changeValue(TEHash2,integer_to_list(S)),
+            loop(State);
 
     {hash,left, Result} ->
         wxTextCtrl:changeValue(TEHash, Result),
@@ -406,11 +428,11 @@ loop(State) ->
 
 %% Fügt eine neue Pid an und ruft den loop auf
 to_loop(State,Proc) ->
-  {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,TPubA1,TPubA2,Pid} = State,
-  loop({Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,TPubA1,TPubA2,lists:append(Pid, [Proc])}).
+  {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,TPubA1,TPubA2,TEHash2,Pid} = State,
+  loop({Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,TPubA1,TPubA2,TEHash2,lists:append(Pid, [Proc])}).
 
 decodeOefKey(State) ->
-    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,TPubA1,TPubA2,Pid} = State,
+    {Frame,TEingabe,TAusgabe,TBlockL,Tlog,Status,TEHash,PrivKey,TPubKey,TPubP,TPubN,TPubP1,TPubP2,TPubY1,TPubY2,PrimLen,TPubA1,TPubA2,TEHash2,Pid} = State,
     Tokens = string:tokens(wxTextCtrl:getValue(TPubKey),"K: P: N: X: Y: , \n"),
     K = list_to_integer(wxTextCtrl:getValue(TPubKey)),
     P = list_to_integer(wxTextCtrl:getValue(TPubP)),
