@@ -152,7 +152,7 @@ calc_key(Len, A,Pid) ->
     Tik = spawn(ecc,tik, [Pid, self()]),
     link(Tik),
     Proc = prime:spawnPrimes(self(),4,Len),
-    Point = new_make_key(Len, A,1,Pid),
+    Point = new_make_key(Len, A,1,1,Pid),
     kill(Proc),
     exit(Tik,done),
     Pid ! {tik,ok},
@@ -164,12 +164,12 @@ kill(Proc) ->
     exit(hd(Proc),done),
     kill(tl(Proc)).
 
-new_make_key(Len,A,Anz,Pid) ->
+new_make_key(Len,A,Anz,AnzN,Pid) ->
     new_seed(),
     receive
         {prime, P} ->
             case P rem 8 == 5 of
-                false -> new_make_key(Len,A,Anz+1,Pid);
+                false -> new_make_key(Len,A,Anz+1,AnzN,Pid);
                 true ->
                     X = get_valid_euklid(P),
                     {X1,X2} = euklid({X,1},{P,0}),
@@ -177,9 +177,10 @@ new_make_key(Len,A,Anz,Pid) ->
                     N = calc_n(abs(X1),abs(X2), P),
                     io:format("N: ~p~n",[N]),
                     case is_prime(N div 8) of
-                        false -> new_make_key(Len,A,Anz+1,Pid); %Abbruch neu anfangen
+                        false -> new_make_key(Len,A,Anz+1,AnzN+1,Pid); %Abbruch neu anfangen
                         true ->
-                            Pid ! {message, "Anzahl erzeugter Primzahlen: " ++ integer_to_list(Anz)},
+                            Pid ! {message, "Anzahl geprüfter Primzahlen: " ++ integer_to_list(Anz)},
+                            Pid ! {message, "Anzahl geprüfter Ordnungen: " ++ integer_to_list(AnzN)},
                             Point = calc_point(Len, P, A),
                             {P1,P2,P} = Point,
                             make_key_extension(N,Point,A,Pid),
@@ -413,6 +414,8 @@ getBlockLen(P,C,S) ->
     end.
 
 verschluesseln(M,B,P,N,G1,G2,Y1,Y2,A,Pid) ->
+    TextLen = length(M),
+    Pid ! {message, "Länge der Nachricht: " ++ integer_to_list(TextLen)},
     Proc = spawn(ecc,tik,[Pid,self()]),
     link(Proc),
     Bllen = getBlockLen(P,1,[4294967295]),
@@ -477,12 +480,12 @@ makechifBlock(M,Result,K,{C1,C2},{G1,G2},P,A,Pid) ->
 genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A,Pid) ->
     {A1,A2} = fmult({G1,G2},P,A,K),
     B1 = C1 * M1 rem P,
-    Pid ! {message, "----------"},
-    Pid ! {message, "Verschlüssele: " ++ integer_to_list(C1) ++ " --> " ++ integer_to_list(B1)},
-    Pid ! {message, " +++++++++ "},
+    %Pid ! {message, "----------"},
+    %Pid ! {message, "Verschlüssele: " ++ integer_to_list(C1) ++ " --> " ++ integer_to_list(B1)},
+    %Pid ! {message, " +++++++++ "},
     B2 = C2 * M2 rem P,
-    Pid ! {message, "Verschlüssele: " ++ integer_to_list(C2) ++ " --> " ++ integer_to_list(B2)},
-    Pid ! {message, "----------"},
+    %Pid ! {message, "Verschlüssele: " ++ integer_to_list(C2) ++ " --> " ++ integer_to_list(B2)},
+    %Pid ! {message, "----------"},
     {{A1,A2},B1,B2}.
 
 %Algorithmus §.3 Punkt 1) 3
@@ -559,12 +562,12 @@ cipher_to_list(Input) ->
 makedechif({A1,A2},P,B1,B2,X,A,Pid) ->
     {C1,C2} = fmult({A1,A2},P,A,X),
     M1 = (B1 * multiplikativInverses(C1,P))rem P,
-    Pid ! {message, "------------"},
-    Pid ! {message, "decrypt: " ++ integer_to_list(B1) ++ " --> " ++ integer_to_list(M1)},
+    %Pid ! {message, "------------"},
+    %Pid ! {message, "decrypt: " ++ integer_to_list(B1) ++ " --> " ++ integer_to_list(M1)},
     M2 = (B2 * multiplikativInverses(C2,P)) rem P,
-    Pid ! {message, " +++++++++++ "},
-    Pid ! {message, "decrypt: " ++ integer_to_list(B2) ++ " --> " ++ integer_to_list(M2)},
-    Pid ! {message, "------------"},
+    %Pid ! {message, " +++++++++++ "},
+    %Pid ! {message, "decrypt: " ++ integer_to_list(B2) ++ " --> " ++ integer_to_list(M2)},
+    %Pid ! {message, "------------"},
     {M1,M2}.
 
 make_sig(Ordnung,{G1,G2},P,A, Nachricht,Priv,Pid) ->

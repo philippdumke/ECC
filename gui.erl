@@ -78,7 +78,7 @@ make_window() ->
 
 
     %% Blocklänge
-    TBlockL = wxTextCtrl:new(Panel,1003,[{value,"100"},{style,?wxDEFAULT}]),
+    TBlockL = wxTextCtrl:new(Panel,1003,[{value,"10"},{style,?wxDEFAULT}]),
     STBlockL1 = wxStaticText:new(Panel,2007,"Blocklänge",[]),
     STBlockL2 = wxStaticText:new(Panel,2008," ",[]),
     PrimLen = wxTextCtrl:new(Panel,1040,[{value,"100"},{style,?wxDEFAULT}]),
@@ -91,7 +91,7 @@ make_window() ->
 
     %% Public Key
     TPubKey = wxTextCtrl:new(Panel,1005,[{value,""},{style, ?wxDEFAULT bor ?wxTE_MULTILINE}]),
-    STPubKey1 = wxStaticText:new(Panel,2016,"Öff. Key"),
+    STPubKey1 = wxStaticText:new(Panel,2016,"Kurve"),
     STPubKey2 = wxStaticText:new(Panel,2017,""),
     STPubKey3 = wxStaticText:new(Panel,2018,""),
 
@@ -134,11 +134,11 @@ make_window() ->
 
     Encrypt = wxButton:new(Panel, 101,[{label,"Verschlüsseln"}]),
     Decrypt = wxButton:new(Panel, 102, [{label, "Entschlüsseln"}]),
-    Test = wxButton:new(Panel,103,[{label,"Test"}]),
-    Key = wxButton:new(Panel,104,[{label,"Gen Key"}]),
+    Test = wxButton:new(Panel,103,[{label,"Check Signatur"}]),
+    Key = wxButton:new(Panel,104,[{label,"Gen. Key"}]),
     Kill = wxButton:new(Panel, 105,[{label, "Kill"}]),
     Clear = wxButton:new(Panel, 106,[{label, "Clear"}]),
-    HashB =  wxButton:new(Panel, 107,[{label, "Hash"}]),
+    HashB =  wxButton:new(Panel, 107,[{label, "Gen. Signatur"}]),
     Export = wxButton:new(Panel,108,[{label,"Export"}]),
 
     Status = wxTextCtrl:new(Panel,1010, [{value,"ok."},{style,?wxDEFAULT bor ?wxTE_READONLY}]),
