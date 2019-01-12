@@ -90,7 +90,7 @@ make_window() ->
     PrivKey = wxTextCtrl:new(Panel,1004,[{value,""},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
 
     %% Public Key
-    TPubKey = wxTextCtrl:new(Panel,1005,[{value,""},{style, ?wxDEFAULT bor ?wxTE_MULTILINE}]),
+    TPubKey = wxTextCtrl:new(Panel,1005,[{value,"-1"},{style, ?wxDEFAULT bor ?wxTE_MULTILINE}]),
     STPubKey1 = wxStaticText:new(Panel,2016,"Kurve"),
     STPubKey2 = wxStaticText:new(Panel,2017,""),
     STPubKey3 = wxStaticText:new(Panel,2018,""),
@@ -293,8 +293,8 @@ loop(State) ->
         wxTextCtrl:changeValue(Tlog,(wxTextCtrl:getValue(Tlog) ++ "\n \n"++ "========>>>>>  Verschlüsseln")),
         Eingabe = wxTextCtrl:getValue(TEingabe),
         BlockLen = list_to_integer(wxTextCtrl:getValue(TBlockL)),
-        {K,P,N,{P1,P2},{Y1,Y2}} = decodeOefKey(State),
-        Proc = spawn(ecc,verschluesseln,[Eingabe,BlockLen,P,N,P1,P2,Y1,Y2,K,self()]),
+        {A,P,N,{P1,P2},{Y1,Y2}} = decodeOefKey(State),
+        Proc = spawn(ecc,verschluesseln,[Eingabe,BlockLen,P,N,P1,P2,Y1,Y2,A,self()]),
         to_loop(State,Proc);
 
     {ausgabe,verschluesseln,Result} ->
@@ -327,7 +327,8 @@ loop(State) ->
     #wx{id = 104, event=#wxCommand{type = command_button_clicked}} ->
         wxTextCtrl:changeValue(Tlog,wxTextCtrl:getValue(Tlog) ++ "\n \n" ++ "========>>>>> Generiere Schlüssel"),
         Len = list_to_integer(wxTextCtrl:getValue(PrimLen)),
-        spawn(ecc,calc_key,[Len,-1,self()]),
+        A = list_to_integer(wxTextCtrl:getValue(TPubKey)),
+        spawn(ecc,calc_key,[Len,A,self()]),
         loop(State);
 
 
@@ -406,6 +407,8 @@ loop(State) ->
         wxTextCtrl:changeValue(TPubA1,integer_to_list(A1)),
         wxTextCtrl:changeValue(TPubA2,integer_to_list(A2)),
         loop(State);
+    {proc, X} ->
+            to_loop(State,X);
 
     {tik} ->
         case wxTextCtrl:getValue(Status) of
@@ -450,6 +453,6 @@ kill(Pid) when length(Pid) == 0 ->
     io:format("Alle Threads beendet ~n",[]);
 kill(Pid) ->
     Thread = hd(Pid),
-    exit(Thread, exit),
+    exit(Thread, kill),
     io:format("Beende Thread: ~p~n",[hd(Pid)]),
     kill(tl(Pid)).

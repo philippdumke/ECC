@@ -68,6 +68,7 @@ test_block(Message, Len, Pid) ->
     exit(Tik, done),
     Pid ! {tik,ok}.
 
+%% Füllt Blöcke mit Leerzeichen auf
 add_Block(0,Result) -> Result;
 add_Block(K,Result) ->
     add_Block(K-1,lists:append(Result,[32])).
@@ -93,6 +94,7 @@ block_to_text(Input,Blocklaenge, Pid) ->
     Pid ! {message, "Aus den Blöcken wurde ein String erstellt"},
     Result.
 
+%% Berechnet den Hash  -- DEPRICATED
 compute_Hash(Input, Pid) ->
     Tik = spawn(ecc,tik, [Pid, self()]),
     link(Tik),
@@ -101,7 +103,7 @@ compute_Hash(Input, Pid) ->
     Pid ! {ausgabe, hash, Result},
     exit(Tik, done).
 
-
+%% Generiert eine Zufallszahl der Länge N
 make(N) -> new_seed(), make(N,0).
 make(0,D) -> D;
 make(N,D) ->
@@ -139,6 +141,7 @@ is_prime(Test,N,Len) ->
         true -> is_prime(Test, N, Len)
     end.
 
+%% Berechnet Legendre Symbol wenn C und P teilerfremd sind
 euler_kriterium(C,P) ->
    Result = fpow(C,(P-1) div 2, P),
    N = P-1,
@@ -147,23 +150,27 @@ euler_kriterium(C,P) ->
        N -> false;
        _ -> 0
     end.
-
+% Aufruf aus der GUI, berrechnet einen Schlüssel
 calc_key(Len, A,Pid) ->
+    Pid ! {proc, self()},
     Tik = spawn(ecc,tik, [Pid, self()]),
     link(Tik),
     Proc = prime:spawnPrimes(self(),4,Len),
     Point = new_make_key(Len, A,1,1,Pid),
+    % TODO Proc ist eine Liste !!!!
     kill(Proc),
-    exit(Tik,done),
+    exit(Tik,kill),
     Pid ! {tik,ok},
     Point.
 
-kill(Proc) when length(Proc) == 1 -> exit(hd(Proc),done);
+kill(Proc) when length(Proc) == 1 -> exit(hd(Proc),kill);
 kill(Proc) ->
     io:format("Kill: ~p~n", [hd(Proc)]),
-    exit(hd(Proc),done),
+    exit(hd(Proc),kill),
     kill(tl(Proc)).
 
+
+%% Generiert den Schlüssel
 new_make_key(Len,A,Anz,AnzN,Pid) ->
     new_seed(),
     receive
@@ -171,16 +178,24 @@ new_make_key(Len,A,Anz,AnzN,Pid) ->
             case P rem 8 == 5 of
                 false -> new_make_key(Len,A,Anz+1,AnzN,Pid);
                 true ->
+                    %% Generiert eine Zahl X derenen korespondierender Wert Y ein Punkt auf der Kurve ergibt
                     X = get_valid_euklid(P),
+                    %% Euklidischer Algorithmus zerlegt die Primzahl in zwei Quadrate
                     {X1,X2} = euklid({X,1},{P,0}),
                     io:format("lösung: ~p ~p ~n" ,[X1,X2]),
-                    N = calc_n(abs(X1),abs(X2), P),
+                    %% Für A = -1 die alte Funktion, für andere Funktionen wird die Ordnung über test_alpha bestimmt
+                    case A of
+                        -1 -> N = calc_n(abs(X1),abs(X2), P);
+                        _ -> N = test_alpha({X1,X2},P,A)
+                    end,
                     io:format("N: ~p~n",[N]),
+                    %% Test ob Ordnung einen großen Primteiler enthält, damit der Diskrete Logarithmus schwer lösbar ist
                     case is_prime(N div 8) of
                         false -> new_make_key(Len,A,Anz+1,AnzN+1,Pid); %Abbruch neu anfangen
                         true ->
                             Pid ! {message, "Anzahl geprüfter Primzahlen: " ++ integer_to_list(Anz)},
                             Pid ! {message, "Anzahl geprüfter Ordnungen: " ++ integer_to_list(AnzN)},
+                            %% KurvenPunkt berechnen
                             Point = calc_point(Len, P, A),
                             {P1,P2,P} = Point,
                             make_key_extension(N,Point,A,Pid),
@@ -189,24 +204,58 @@ new_make_key(Len,A,Anz,AnzN,Pid) ->
             end
     end.
 
+%% Testet das alpha für Ordnungsberechnung a /= 1
+test_alpha({X,Y},P,A) when X rem 2 == 0 -> test_alpha({Y,X},P,A);
+test_alpha({X,Y},P,A) ->
+    Euler = euler_kriterium(A,P),
+    case Euler of
+        true -> E = 1;
+        false -> E = -1;
+        _ -> E = 0,exit(test_alpha_euler)
+    end,
+    QRe = rounded_div(((X * 2) +( Y * 2 )), 8),
+    QIm = rounded_div((Y * 2) -( X * 2), 8),
+    QRe2 = rounded_div((-X * 2) + (Y * 2),8),
+    QIm2 = rounded_div((Y * 2) - (-X * 2), 8),
+    MRe = (2 * QRe - 2 * QIm) + E,
+    MIm = 2 * QRe + 2 * QIm,
+    MRe2 = (2 * QRe2 -2 * QIm2) + E,
+    MIm2 = 2 * QRe2 + 2 * QIm2,
+    io:format("Mre: ~p ~n ~p ~n",[MRe,MRe2]),
+    case X of
+        MRe -> P-(2* MRe)+1;
+        _ ->
+            case -X of
+                MRe2 -> P-(2*MRe2)+1;
+                _ -> exit(mre_no_match)
+            end
+
+    end.
+
 make_key_extension(N,Punkt,A,Pid) ->
     {P1,P2,P} = Punkt,
     OS = N div 8,
+    %% Generiert eine Zahl kleiner als N durch 8
     X = make_less_os(OS,length(integer_to_list(OS))),
+    %% Schneller Addition
     Y = fmult({P1,P2},P,A,X),
     Pid ! {ausgabe, priv, X},
-    Pid ! {ausgabe, oef, {-1,P,N,P1,P2,Y}}.
+    Pid ! {ausgabe, oef, {A,P,N,P1,P2,Y}}.
 
 
+%% Erzeugt eine Zahl kleiner als OS
 make_less_os(OS,Len) ->
     N = make(Len),
     if N =< OS -> N;
         true -> make_less_os(OS,Len)
     end.
 
+% Berrechnet einen Punkt auf der Kurve
 calc_point(Len, P,A) ->
+    %% Zufallszahl generieren
     R1 = make(Len - 2),
     R = (fastExponentiation(R1,3) - R1) rem P,
+    %% Testet ob es ein korenspondierenden Y gibt
     case euler_kriterium(R,P) of
         false -> calc_point(Len, P, A);
         0 -> exit("eulerkriterium ist komisch");
@@ -215,8 +264,16 @@ calc_point(Len, P,A) ->
             io:format("fpow( ~p, ~p, ~p)",[R,(P-1) div 4,P]),
             Temp =  fpow(R,(P - 1) div 4, P),
             io:format("calc_point Temp: ~p, L: ~p ~n",[Temp,L]),
+            %% Berrechnen von Y je nachdem ob das Eulerkriterium 1 oder -1 liefert
             case Temp of
-                1 -> {R1 , fpow(R,( P + 3) div 8, P),P};
+                1 -> R2 = fpow(R,( P + 3) div 8, P),
+                     %% Testet ob die Ordnung größer 8G ist
+                     Ordnung = ordT({R1 , R2},0,A,P),
+                     case Ordnung of
+                         false -> calc_point(Len,P,A);
+                          _ -> {R1,R2,P}
+                     end;
+
                 L ->
                     R2 = ((P+1) div 2) * fpow((4 * R), ((P + 3) div 8), P) rem P,
                     Ordnung = ordT({R1 , R2},0,A,P),
@@ -229,7 +286,7 @@ calc_point(Len, P,A) ->
     end.
 
 
-% Funktion mappen
+%%Funktion zum runden
 c_to_Z({A1,A2}) ->
     if A1 >= 0.5 -> B1 = trunc(A1 - 0.5) + 1;
        true -> B1 = trunc(A1 -0.5)
@@ -240,7 +297,7 @@ c_to_Z({A1,A2}) ->
     end,
     {B1,B2}.
 
-
+%% Addiert zwei Punkte
 tangente({X1,_},{X2,_},_) when X1 == X2 ->
     unendlichFernerPunkt;
 
@@ -260,7 +317,7 @@ tangente({X1,Y1},{X2,Y2},P) ->
     end,
     {X4,Y4}.
 
-
+%% Addiert einen Punkt mit sich selbst
 sehne({_,Y},_,_) when Y == 0 ->
     unendlichFernerPunkt;
 sehne({X,Y},A,P) ->
@@ -302,6 +359,7 @@ ordT({X,Y},K,A,P) ->
         _ -> ordT(Temp,K+1,A,P)
     end.
 
+%% Startwer für den Euklidischen Algorithmus (W)
 get_valid_euklid(P) ->
     A = make(length(integer_to_list(P))-1),
     K = P-1,
@@ -310,7 +368,7 @@ get_valid_euklid(P) ->
         _ -> get_valid_euklid(P)
     end.
 
-
+%% Euklidischer Algorithmus für Gauss Zahlen
 euklid( {0,0},B) -> B;
 euklid({A1,A2},{B1,B2}) when A1 =:= B1, B2 =:= A2 -> {A1,A2};
 euklid(A,B)  ->
@@ -319,8 +377,10 @@ euklid(A,B)  ->
                 {A1,A2} = A,
                 {B1,B2} = B,
                 %io:format("A: ~p ~p ~n",[A1,A2]),
-                E1 = ((B1 * A1) + (B2 * -A2)) div (pow(A1,2) + pow(A2,2)),
-                E2 = ((B1 * -A2) + (B2 * A1)) div (pow(A1,2) + pow(A2,2)),
+                %E1 = ((B1 * A1) + (B2 * -A2)) div (pow(A1,2) + pow(A2,2)),
+                %E2 = ((B1 * -A2) + (B2 * A1)) div (pow(A1,2) + pow(A2,2)),
+                E1 = rounded_div(((B1 * A1) + (B2 * -A2)), (pow(A1,2) + pow(A2,2))),
+                E2 = rounded_div(((B1 * -A2) + (B2 * A1)), (pow(A1,2) + pow(A2,2))),
                 %io:format("E: ~p ~p ~n",[E1,E2]),
                 {F1,F2} = c_to_Z({E1,E2}),
                 %io:format("F: ~p ~p ~n",[F1,F2]),
@@ -333,7 +393,7 @@ euklid(A,B)  ->
         false -> euklid (B,A)
     end.
 
-
+%% Berrechnet die Ordnung der Gruppe A = -1
 calc_n(X,Y,P) when X rem 2 == 1 ->
     calc_n(Y,X,P);
 calc_n(X,Y,P) ->
@@ -374,9 +434,10 @@ hash(Input) ->
 split(Input,Result) when length(Input) == 1 -> lists:append([hd(Input)],Result).
 
 
-
+%% Schnelle "Multiplikation" / "Addition"
 fmult(Punkt,P,A,Faktor) ->
     Bin = lists:reverse(integer_to_list(Faktor,2)),
+    %% 49 = 1 ; 48 = 0
     case hd(Bin) of
         49 -> Plist = fmult(Punkt,P,A,tl(Bin),[Punkt]);
         48 -> Plist = fmult(Punkt,P,A,tl(Bin),[]);
@@ -404,7 +465,7 @@ fmult_add(Punkt,P,A,Plist) ->
     NP = tangente(Punkt,hd(Plist),P),
     fmult_add(NP,P,A,tl(Plist)).
 
-
+%% Berrechnet die größtmögliche Blocklänge
 getBlockLen(P,C,S) ->
 %4294967296
     A = ublock(S,C,[]),
@@ -413,6 +474,7 @@ getBlockLen(P,C,S) ->
         true -> getBlockLen(P,C+1,lists:append([4294967295],S))
     end.
 
+%% Wird aus der GUI Aufgerufen  verschlüsselt
 verschluesseln(M,B,P,N,G1,G2,Y1,Y2,A,Pid) ->
     TextLen = length(M),
     Pid ! {message, "Länge der Nachricht: " ++ integer_to_list(TextLen)},
@@ -476,7 +538,7 @@ makechifBlock(M,Result,K,{C1,C2},{G1,G2},P,A,Pid) ->
     Pid ! {ausgabe, a, A1},
     makechifBlock(tl(tl(M)),lists:append(Result,lists:append([B1],[B2])),K,{C1,C2},{G1,G2},P,A,Pid).
 
-%% Algorithmus 3.3 Punkt 1) 4
+%% Algorithmus 3.3 Punkt 1) 4 aka Punkt verschlüsselung
 genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A,Pid) ->
     {A1,A2} = fmult({G1,G2},P,A,K),
     B1 = C1 * M1 rem P,
@@ -488,7 +550,7 @@ genchif(K,{C1,C2},{G1,G2},P,{M1,M2},A,Pid) ->
     %Pid ! {message, "----------"},
     {{A1,A2},B1,B2}.
 
-%Algorithmus §.3 Punkt 1) 3
+%Algorithmus §.3 Punkt 1) 3 Zufallszahl für Verschlüsselung
 genk(Y1,Y2,N,P,A) ->
     K = make_less_than(N),
     {Res1,Res2} = fmult({Y1,Y2},P,A,K),
@@ -497,6 +559,7 @@ genk(Y1,Y2,N,P,A) ->
        true -> {K,Res1,Res2}
     end.
 
+%% Generiert eine Zahl kleiner A
 make_less_than(A) ->
     make_less_than(A,length(integer_to_list(A))).
 make_less_than(A,Len) ->
@@ -505,6 +568,7 @@ make_less_than(A,Len) ->
        true -> make_less_than(A,Len)
     end.
 
+%% Wird aus der GUI aufgerufen  entschlüsselt
 entschluesseln(Chif, BlockLen, P, A, {A1,A2},X,Pid) ->
     Proc = spawn(ecc,tik,[Pid, self()]),
     link(Proc),
@@ -570,14 +634,18 @@ makedechif({A1,A2},P,B1,B2,X,A,Pid) ->
     %Pid ! {message, "------------"},
     {M1,M2}.
 
+%% Generiert eine Signatur
 make_sig(Ordnung,{G1,G2},P,A, Nachricht,Priv,Pid) ->
     K = make_less_than(Ordnung-1),
     {U,_} = fmult({G1,G2},P,A,K),
     R = U rem Ordnung,
+    %% Testet ob U = Ordnung
     case R of
         0 -> make_sig(Ordnung,{G1,G2},P,A, Nachricht,Priv,Pid);
         _ ->
+            %% Generiert einen Hash
             Hash = hash(string:trim(Nachricht)),
+            %% Blockchiffre mit der Blocklänge 50 um eine Zahl aus dem Hash zu generieren
             ListofHash = ublock(Hash,50,[]),
             S = ((hd(ListofHash) + Priv * R) * multiplikativInverses(K,Ordnung)) rem Ordnung,
            case S of
@@ -586,6 +654,7 @@ make_sig(Ordnung,{G1,G2},P,A, Nachricht,Priv,Pid) ->
             end
     end.
 
+%Prüft die Signatur ---> Funktioniert manchmal
 check_sig(Ordnung,{G1,G2},P,A,Nachricht,{Y1,Y2},S,R, Pid) ->
     ListofHash = ublock(hash(string:trim(Nachricht)),50,[]),
     W = multiplikativInverses(S,Ordnung),
@@ -599,4 +668,12 @@ check_sig(Ordnung,{G1,G2},P,A,Nachricht,{Y1,Y2},S,R, Pid) ->
       _ -> Pid ! {message, "Signatur nicht ok."}
     end.
 
-
+%% Ganzzahlige Division mit korrekter Rundung
+rounded_div(A,B) ->
+    C = A div B,
+    D = C * B,
+    E = A - D,
+    F = B div 2,
+    if E < F -> C;
+       true -> C+1
+    end.

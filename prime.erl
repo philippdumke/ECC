@@ -59,7 +59,8 @@ spawn_loop(Pid,Anz,Len, Proc) ->
 	X = spawn(prime, make_prime,[Len,Pid]),
     link(X),
 	lists:append(Proc,[X]),
-	spawn_loop(Pid,Anz - 1, Len, lists:append(Proc, [X])).
+	Pid ! {proc, X},
+    spawn_loop(Pid,Anz - 1, Len, lists:append(Proc, [X])).
 
 
 
