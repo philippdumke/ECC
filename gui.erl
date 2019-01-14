@@ -72,7 +72,7 @@ make_window() ->
     %% Hash
     STHash1 = wxStaticText:new(Panel,2005, "S",[]),
     STHash2 = wxStaticText:new(Panel, 2006, " ",[]),
-    TEHash = wxTextCtrl:new(Panel,1002,[{value,"Hier könnte Ihre Werbung stehen"},{style,?wxDEFAULT bor ?wxTE_MULTILINE bor ?wxTE_READONLY}]),
+    TEHash = wxTextCtrl:new(Panel,1002,[{value,""},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
     TEHash2 = wxTextCtrl:new(Panel,1090,[{value,""},{style,?wxDEFAULT bor ?wxTE_MULTILINE}]),
     STHash3 = wxStaticText:new(Panel,2090,"R"),
 
@@ -314,13 +314,13 @@ loop(State) ->
         loop(State);
 
     #wx{id = 103, event=#wxCommand{type = command_button_clicked}} ->
-        wxTextCtrl:changeValue(Tlog,wxTextCtrl:getValue(Tlog) ++ "\n \n" ++ "========>>>>> Test"),
+        wxTextCtrl:changeValue(Tlog,wxTextCtrl:getValue(Tlog) ++ "\n \n" ++ "========>>>>> Signatur"),
 
          Message = wxTextCtrl:getValue(TAusgabe),
         {K,P,N,{P1,P2},{Y1,Y2}} = decodeOefKey(State),
         R = list_to_integer(wxTextCtrl:getValue(TEHash2)),
         S = list_to_integer(wxTextCtrl:getValue(TEHash)),
-        Proc = spawn(ecc, check_sig,[N,{P1,P2},P,K,Message,{Y1,Y2},R,S,self()]),
+        Proc = spawn(ecc, check_sig_gui,[N,{P1,P2},P,K,Message,{Y1,Y2},R,S,self()]),
         to_loop(State, Proc);
 
 
@@ -343,16 +343,16 @@ loop(State) ->
         wxTextCtrl:changeValue(Tlog, ""),
         loop(State);
 
-    %% Hash berechnen
+    %% Signatur erstellen
     #wx{id = 107, event=#wxCommand{type = command_button_clicked}} ->
         Message = wxTextCtrl:getValue(TEingabe),
         {K,P,N,{P1,P2},{Y1,Y2}} = decodeOefKey(State),
         X = list_to_integer(wxTextCtrl:getValue(PrivKey)),
-        Proc = spawn(ecc, make_sig,[N,{P1,P2},P,K,Message,X,self()]),
+        Proc = spawn(ecc, make_sig,[N,{P1,P2},P,K,Message,X,{Y1,Y2},self()]),
         to_loop(State, Proc);
 
     #wx{id = 108, event=#wxCommand{type = command_button_clicked}} ->
-        A = wxTextCtrl:getValue(PrivKey) ++ wxTextCtrl:getValue(TPubKey),
+        A = wxTextCtrl:getValue(PrivKey) ++ wxTextCtrl:getValue(TPubP2),
         case length(A) == 0 of
             false ->  {K,P,N,{P1,P2},{Y1,Y2}} = decodeOefKey(State),
                       Priv = wxTextCtrl:getValue(PrivKey),

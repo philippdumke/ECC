@@ -82,7 +82,8 @@ make_prime(0,_,Len) -> exit(max_tries_exceeded);
 make_prime(K,P,Len) ->
     %io:format(".",[]),
     %case miller_rabin:is_prime(P) of
-    case is_probably_prime(P) of
+    %case is_probably_prime(P) of
+    case ecc:is_prime(P) of
         true -> P;
         false -> make_prime(K-1,P+1,Len)
     end.

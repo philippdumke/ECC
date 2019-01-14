@@ -635,38 +635,51 @@ makedechif({A1,A2},P,B1,B2,X,A,Pid) ->
     {M1,M2}.
 
 %% Generiert eine Signatur
-make_sig(Ordnung,{G1,G2},P,A, Nachricht,Priv,Pid) ->
+make_sig(Ordnung,{G1,G2},P,A, Nachricht,Priv,{Y1,Y2},Pid) ->
     K = make_less_than(Ordnung-1),
+    io:format("K: ~p ~n P: ~p ~n",[K,P]),
     {U,_} = fmult({G1,G2},P,A,K),
     R = U rem Ordnung,
     %% Testet ob U = Ordnung
     case R of
-        0 -> make_sig(Ordnung,{G1,G2},P,A, Nachricht,Priv,Pid);
+        0 -> make_sig(Ordnung,{G1,G2},P,A, Nachricht,Priv,{Y1,Y2},Pid);
         _ ->
             %% Generiert einen Hash
             Hash = hash(string:trim(Nachricht)),
             %% Blockchiffre mit der Blocklänge 50 um eine Zahl aus dem Hash zu generieren
-            ListofHash = ublock(Hash,50,[]),
+            ListofHash = ublock(Hash,55,[]),
             S = ((hd(ListofHash) + Priv * R) * multiplikativInverses(K,Ordnung)) rem Ordnung,
            case S of
-              0 -> make_sig(Ordnung,{G1,G2},P,A,Nachricht,Priv,Pid);
-              _ -> Pid ! {sig,{R,S}}
+              0 -> make_sig(Ordnung,{G1,G2},P,A,Nachricht,Priv,{Y1,Y2},Pid);
+              _ ->
+                    case check_sig(Ordnung, {G1,G2},P,A,Nachricht, {Y1,Y2},S,R, self()) of
+                        true -> Pid ! {sig,{R,S}};
+                        false -> make_sig(Ordnung,{G1,G2},P,A,Nachricht,Priv,{Y1,Y2},Pid)
+                    end
             end
     end.
 
 %Prüft die Signatur ---> Funktioniert manchmal
 check_sig(Ordnung,{G1,G2},P,A,Nachricht,{Y1,Y2},S,R, Pid) ->
-    ListofHash = ublock(hash(string:trim(Nachricht)),50,[]),
+    ListofHash = ublock(hash(string:trim(Nachricht)),55,[]),
     W = multiplikativInverses(S,Ordnung),
     U1 = (W * hd(ListofHash)) rem Ordnung,
     U2 = (R * W) rem Ordnung,
     {U3,_} = tangente(fmult({G1,G2}, P,A,U1),fmult({Y1,Y2},P,A,U2),P),
-    io:format("U3: ~p~n ",[U3]),
+    io:format("U3: ~p~n Ordnung: ~p~n, R: ~p~n",[U3, Ordnung, R]),
     U4 = U3 rem Ordnung,
    case R rem Ordnung of
-      U4 -> Pid ! {message, "Signatur ok."};
-      _ -> Pid ! {message, "Signatur nicht ok."}
+      U4 -> true;%Pid ! {message, "Signatur ok."};
+      _ -> false %Pid ! {message, "Signatur nicht ok."}
     end.
+
+check_sig_gui(Ordnung,{G1,G2},P,A,Nachricht,{Y1,Y2},S,R,Pid) ->
+    Value = check_sig(Ordnung,{G1,G2},P,A,Nachricht,{Y1,Y2},S,R, Pid),
+    case Value of
+        true -> Pid ! {message, "Signatur ok."};
+        false -> Pid ! {message, "Signatur nicht ok."}
+    end.
+
 
 %% Ganzzahlige Division mit korrekter Rundung
 rounded_div(A,B) ->
